@@ -10,6 +10,12 @@ const sections = [
     accent: true,
   },
   {
+    title: 'Все объекты',
+    desc: 'В работе и готовые — этапы, сроки, финансы',
+    icon: 'Building2',
+    to: '/objects',
+  },
+  {
     title: 'Ближайшие закупки',
     desc: 'Что и когда нужно привезти на объекты',
     icon: 'Truck',

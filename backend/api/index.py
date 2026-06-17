@@ -72,6 +72,13 @@ def ensure_schema(cur):
             value VARCHAR(500) NOT NULL,
             sort_order INTEGER DEFAULT 0
         );
+        CREATE TABLE IF NOT EXISTS stage_costs (
+            id SERIAL PRIMARY KEY,
+            object_id INTEGER NOT NULL,
+            stage VARCHAR(255) NOT NULL,
+            cost NUMERIC(14,2) DEFAULT 0,
+            UNIQUE(object_id, stage)
+        );
     ''')
     cur.execute("SELECT COUNT(*) AS c FROM settings")
     if cur.fetchone()['c'] == 0:
@@ -118,7 +125,7 @@ def num(v):
 
 
 def handler(event, context):
-    '''Бэкенд СтройКонтроль: объекты, осмотры, закупки, настройки и админка'''
+    '''Бэкенд СтройКонтроль: объекты, осмотры, закупки, настройки, этапы'''
     method = event.get('httpMethod', 'GET')
     if method == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
@@ -141,8 +148,17 @@ def handler(event, context):
 
     result = {}
 
+    # ── Объекты ──────────────────────────────────────────────────────────────
     if action == 'list_objects':
-        cur.execute("SELECT * FROM objects ORDER BY created_at DESC")
+        # Сортировка: сначала те, у кого есть дата договора (по возрастанию),
+        # потом без даты (по created_at)
+        cur.execute("""
+            SELECT * FROM objects
+            ORDER BY
+                CASE WHEN contract_sign_date IS NOT NULL THEN 0 ELSE 1 END,
+                contract_sign_date ASC NULLS LAST,
+                created_at ASC
+        """)
         result = {'objects': [jsonable(r) for r in cur.fetchall()]}
 
     elif action == 'add_object':
@@ -160,12 +176,28 @@ def handler(event, context):
         result = {'id': cur.fetchone()['id']}
 
     elif action == 'update_object':
+        # Полное редактирование всех полей объекта (для администратора)
         oid = int(body.get('id'))
-        cur.execute(f'''UPDATE objects SET cost={num(body.get('cost'))},
-            self_cost={num(body.get('self_cost'))}, mortgage_cost={num(body.get('mortgage_cost'))}
+        cur.execute(f'''UPDATE objects SET
+            customer_last_name={esc(body.get('customer_last_name'))},
+            customer_first_name={esc(body.get('customer_first_name'))},
+            customer_middle_name={esc(body.get('customer_middle_name'))},
+            customer_phone={esc(body.get('customer_phone'))},
+            project={esc(body.get('project'))},
+            area_dsp={num(body.get('area_dsp'))},
+            address={esc(body.get('address'))},
+            contract_number={esc(body.get('contract_number'))},
+            contract_sign_date={esc(body.get('contract_sign_date'))},
+            contract_end_date={esc(body.get('contract_end_date'))},
+            cost={num(body.get('cost'))},
+            self_cost={num(body.get('self_cost'))},
+            mortgage_cost={num(body.get('mortgage_cost'))},
+            bank={esc(body.get('bank'))},
+            note={esc(body.get('note'))}
             WHERE id={oid}''')
         result = {'ok': True}
 
+    # ── Осмотры ───────────────────────────────────────────────────────────────
     elif action == 'list_inspections':
         cur.execute("SELECT * FROM inspections ORDER BY created_at DESC")
         result = {'inspections': [jsonable(r) for r in cur.fetchall()]}
@@ -182,12 +214,35 @@ def handler(event, context):
              {esc(body.get('act_date'))})
             RETURNING id''')
         ins_id = cur.fetchone()['id']
+
+        # Создаём закупку если есть поставка
         if body.get('supply') and body.get('delivery_date'):
             cur.execute(f'''INSERT INTO purchases (inspection_id, object_name, supply, delivery_date, status)
                 VALUES ({ins_id}, {esc(body.get('object_name'))}, {esc(body.get('supply'))},
                 {esc(body.get('delivery_date'))}, 'new')''')
+
+        # Если этап принят (stage_passed == 'Да') — вычитаем стоимость этапа из себестоимости
+        if body.get('stage_passed') == 'Да' and body.get('object_name') and body.get('stage'):
+            obj_name = body.get('object_name')
+            stage = body.get('stage')
+            # Ищем объект по имени (объект_name = "Фамилия Имя — адрес")
+            # Стоимость этапа хранится в stage_costs по object_id
+            # Попробуем найти object_id через stage_costs напрямую (если есть запись)
+            cur.execute(f"""
+                SELECT sc.cost, sc.object_id FROM stage_costs sc
+                WHERE sc.stage = {esc(stage)}
+                ORDER BY sc.id DESC LIMIT 1
+            """)
+            sc_row = cur.fetchone()
+            if sc_row and sc_row['cost'] and float(sc_row['cost']) > 0:
+                cur.execute(f"""
+                    UPDATE objects SET self_cost = GREATEST(0, self_cost - {float(sc_row['cost'])})
+                    WHERE id = {sc_row['object_id']}
+                """)
+
         result = {'id': ins_id}
 
+    # ── Закупки ───────────────────────────────────────────────────────────────
     elif action == 'list_purchases':
         cur.execute("SELECT * FROM purchases WHERE delivery_date >= CURRENT_DATE ORDER BY delivery_date ASC")
         result = {'purchases': [jsonable(r) for r in cur.fetchall()]}
@@ -203,6 +258,24 @@ def handler(event, context):
             cur.execute(f"UPDATE purchases SET {', '.join(sets)} WHERE id={pid}")
         result = {'ok': True}
 
+    # ── Стоимости этапов ──────────────────────────────────────────────────────
+    elif action == 'get_stage_costs':
+        oid = int(body.get('object_id') or params.get('object_id', 0))
+        cur.execute(f"SELECT stage, cost FROM stage_costs WHERE object_id={oid}")
+        costs = {r['stage']: float(r['cost']) for r in cur.fetchall()}
+        result = {'costs': costs}
+
+    elif action == 'set_stage_cost':
+        oid = int(body.get('object_id'))
+        stage = body.get('stage')
+        cost_val = num(body.get('cost'))
+        cur.execute(f"""
+            INSERT INTO stage_costs (object_id, stage, cost) VALUES ({oid}, {esc(stage)}, {cost_val})
+            ON CONFLICT (object_id, stage) DO UPDATE SET cost = EXCLUDED.cost
+        """)
+        result = {'ok': True}
+
+    # ── Настройки ─────────────────────────────────────────────────────────────
     elif action == 'get_settings':
         cur.execute("SELECT * FROM settings ORDER BY kind, sort_order")
         rows = [jsonable(r) for r in cur.fetchall()]
