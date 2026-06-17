@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
@@ -11,27 +11,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-
-const OBJECTS = ['Объект №1 — ул. Лесная, 12', 'Объект №2 — пос. Сосновый', 'Объект №3 — СНТ Рассвет'];
-
-const STAGES = [
-  'Фундамент',
-  'Стены',
-  'Армопояс',
-  'Кровля',
-  'Фасад',
-  'Цоколь',
-  'Контур заземления',
-  'Отмостка',
-  'Окна и дверь',
-  'Вентиляция',
-  'Сантехника',
-  'Электроснабжение',
-  'Стяжка полусухая и улучшенная штукатурка стен',
-  'Дом сдан',
-];
-
-const SUPPLIES = ['Бетон на армопояс', 'Комплект стен', 'Комплект для крыши'];
+import { api, BuildObject } from '@/lib/api';
 
 const today = new Date();
 const toISO = (d: Date) => d.toISOString().split('T')[0];
@@ -63,8 +43,16 @@ const Field = ({
 const dateInputClass =
   'w-full h-11 px-3 rounded-sm border border-input bg-card text-foreground font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-accent transition';
 
+const objectLabel = (o: BuildObject) =>
+  [o.customer_last_name, o.customer_first_name].filter(Boolean).join(' ') +
+  (o.address ? ` — ${o.address}` : ` (объект #${o.id})`);
+
 const Inspection = () => {
   const navigate = useNavigate();
+  const [objects, setObjects] = useState<BuildObject[]>([]);
+  const [stages, setStages] = useState<string[]>([]);
+  const [supplies, setSupplies] = useState<string[]>([]);
+
   const [object, setObject] = useState('');
   const [stage, setStage] = useState('');
 
@@ -78,20 +66,46 @@ const Inspection = () => {
   const [houseDone, setHouseDone] = useState('');
   const [ownerMeeting, setOwnerMeeting] = useState('');
   const [actDate, setActDate] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api<{ objects: BuildObject[] }>('list_objects').then((d) => setObjects(d.objects || []));
+    api<{ stages: string[]; supplies: string[] }>('get_settings').then((d) => {
+      setStages(d.stages || []);
+      setSupplies(d.supplies || []);
+    });
+  }, []);
 
   const isFinal = stage === 'Дом сдан';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!object || !stage) {
       toast({ title: 'Заполните название объекта и этап', variant: 'destructive' });
       return;
     }
-    toast({
-      title: 'Осмотр сохранён',
-      description: `${object} · ${stage}`,
-    });
-    navigate('/');
+    setSaving(true);
+    try {
+      await api('add_inspection', {
+        object_name: object,
+        stage,
+        stage_passed: stagePassed,
+        delivery_date: deliveryDate,
+        supply,
+        next_start_date: nextStart,
+        next_end_date: nextEnd,
+        note,
+        house_done: houseDone,
+        owner_meeting_date: ownerMeeting,
+        act_date: actDate,
+      });
+      toast({ title: 'Осмотр сохранён', description: `${object} · ${stage}` });
+      navigate('/');
+    } catch {
+      toast({ title: 'Не удалось сохранить', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -124,9 +138,14 @@ const Inspection = () => {
                   <SelectValue placeholder="Выберите объект" />
                 </SelectTrigger>
                 <SelectContent>
-                  {OBJECTS.map((o) => (
-                    <SelectItem key={o} value={o}>
-                      {o}
+                  {objects.length === 0 && (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      Сначала добавьте объект
+                    </div>
+                  )}
+                  {objects.map((o) => (
+                    <SelectItem key={o.id} value={objectLabel(o)}>
+                      {objectLabel(o)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -139,7 +158,7 @@ const Inspection = () => {
                   <SelectValue placeholder="Выберите этап" />
                 </SelectTrigger>
                 <SelectContent>
-                  {STAGES.map((s) => (
+                  {stages.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>
@@ -197,7 +216,7 @@ const Inspection = () => {
                     <SelectValue placeholder="Выберите комплект" />
                   </SelectTrigger>
                   <SelectContent>
-                    {SUPPLIES.map((s) => (
+                    {supplies.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
                       </SelectItem>
@@ -289,10 +308,11 @@ const Inspection = () => {
             <div className="flex gap-3 animate-fade-up">
               <Button
                 type="submit"
+                disabled={saving}
                 className="flex-1 h-12 bg-accent text-accent-foreground hover:bg-accent/90 font-display uppercase tracking-wider text-base rounded-sm"
               >
-                <Icon name="Check" size={18} className="mr-2" />
-                Сохранить осмотр
+                <Icon name={saving ? 'Loader' : 'Check'} size={18} className={`mr-2 ${saving ? 'animate-spin' : ''}`} />
+                {saving ? 'Сохраняю…' : 'Сохранить осмотр'}
               </Button>
               <Button
                 type="button"
