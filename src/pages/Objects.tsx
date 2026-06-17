@@ -52,9 +52,9 @@ const ObjectCard = ({ o, stage }: { o: BuildObject; stage?: string }) => (
 
     <div className="grid grid-cols-3 gap-2">
       {[
-        { l: 'Стоимость', v: o.cost },
-        { l: 'Себестоимость', v: o.self_cost },
-        { l: 'Ипотека', v: o.mortgage_cost },
+        { l: 'Стоимость по договору', v: o.cost },
+        { l: 'План. стоимость стр-ва', v: o.self_cost },
+        { l: 'Оплата агенту', v: o.mortgage_cost },
       ].map((f) => (
         <div key={f.l} className="border border-border rounded-sm px-3 py-2 bg-background/40">
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{f.l}</p>

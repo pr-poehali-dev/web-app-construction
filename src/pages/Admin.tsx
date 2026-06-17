@@ -162,15 +162,15 @@ const ObjectEditor = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <Lbl>Стоимость (₽)</Lbl>
+                  <Lbl>Стоимость по договору (₽)</Lbl>
                   <Input type="number" value={o.cost ?? 0} onChange={(e) => set('cost', e.target.value)} className="h-10" />
                 </div>
                 <div>
-                  <Lbl>Себестоимость (₽)</Lbl>
+                  <Lbl>Планируемая стоимость строительства (₽)</Lbl>
                   <Input type="number" value={o.self_cost ?? 0} onChange={(e) => set('self_cost', e.target.value)} className="h-10" />
                 </div>
                 <div>
-                  <Lbl>Ипотека (₽)</Lbl>
+                  <Lbl>Оплата агенту (₽)</Lbl>
                   <Input type="number" value={o.mortgage_cost ?? 0} onChange={(e) => set('mortgage_cost', e.target.value)} className="h-10" />
                 </div>
               </div>
@@ -198,7 +198,7 @@ const ObjectEditor = ({
           {tab === 'stages' && (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground font-mono mb-3">
-                Стоимость каждого этапа вычитается из себестоимости при принятии осмотра.
+                Стоимость каждого этапа вычитается из планируемой стоимости строительства при принятии осмотра.
               </p>
               {stages.map((stage) => (
                 <div key={stage} className="flex items-center gap-3">

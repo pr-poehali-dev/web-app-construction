@@ -52,8 +52,8 @@ const Balance = () => {
       <main className="container max-w-4xl py-8 sm:py-10 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-up">
           {[
-            { l: 'Общая стоимость', v: totals.cost, icon: 'Wallet' },
-            { l: 'Общая себестоимость', v: totals.self, icon: 'Receipt' },
+            { l: 'Общая стоимость по договору', v: totals.cost, icon: 'Wallet' },
+            { l: 'Общая план. стоимость стр-ва', v: totals.self, icon: 'Receipt' },
             { l: 'Прибыль', v: totals.profit, icon: 'TrendingUp', accent: true },
           ].map((t) => (
             <div
@@ -101,9 +101,9 @@ const Balance = () => {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { l: 'Стоимость', v: o.cost },
-                    { l: 'Себестоимость', v: o.self_cost },
-                    { l: 'Стоимость по ипотеке', v: o.mortgage_cost },
+                    { l: 'Стоимость по договору', v: o.cost },
+                    { l: 'Планируемая стоимость строительства', v: o.self_cost },
+                    { l: 'Оплата агенту', v: o.mortgage_cost },
                   ].map((p) => (
                     <div key={p.l} className="border border-border rounded-sm px-3 py-2.5 bg-background/40">
                       <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
@@ -118,7 +118,7 @@ const Balance = () => {
           </div>
         )}
         <p className="text-xs text-muted-foreground font-mono">
-          Стоимость, себестоимость и ипотеку можно изменить на странице администратора.
+          Стоимость по договору, планируемую стоимость строительства и оплату агенту можно изменить на странице администратора.
         </p>
       </main>
     </div>
