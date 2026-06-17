@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
+import { useAuth } from '@/lib/auth';
 
 const sections = [
   {
@@ -55,6 +56,12 @@ const sections = [
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen">
@@ -77,9 +84,18 @@ const Index = () => {
               </p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-            система активна
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+              {user?.username}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-sm border border-border text-xs font-mono text-muted-foreground hover:text-foreground hover:border-foreground transition"
+            >
+              <Icon name="LogOut" size={13} />
+              <span className="hidden sm:inline">Выйти</span>
+            </button>
           </div>
         </div>
       </header>

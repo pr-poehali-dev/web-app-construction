@@ -8,6 +8,7 @@ import { toast } from '@/hooks/use-toast';
 import { Lbl, Section, fullName } from './admin/AdminShared';
 import { ObjectsSection } from './admin/AdminObjectEditor';
 import { ListEditor } from './admin/AdminListEditor';
+import AdminUsers from './admin/AdminUsers';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -206,8 +207,11 @@ const Admin = () => {
           onSave={(it) => saveList('supply', it)}
         />
 
+        {/* Пользователи */}
+        <AdminUsers />
+
         {/* Смена пароля */}
-        <Section title="Сменить пароль" icon="KeyRound">
+        <Section title="Сменить пароль администратора" icon="KeyRound">
           <form onSubmit={changePassword} className="space-y-3 max-w-sm">
             <div>
               <Lbl>Текущий пароль</Lbl>

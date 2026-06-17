@@ -83,6 +83,12 @@ def ensure_schema(cur):
             cost NUMERIC(14,2) DEFAULT 0,
             UNIQUE(object_id, stage)
         );
+        CREATE TABLE IF NOT EXISTS app_users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(100) NOT NULL UNIQUE,
+            password VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
     ''')
     # Добавляем новые колонки к существующим таблицам (безопасно)
     for col_sql in [
@@ -94,6 +100,10 @@ def ensure_schema(cur):
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS contract_main_number VARCHAR(100)",
     ]:
         cur.execute(col_sql)
+    # Начальные пользователи
+    cur.execute("SELECT COUNT(*) AS c FROM app_users")
+    if cur.fetchone()['c'] == 0:
+        cur.execute("INSERT INTO app_users (username, password) VALUES ('n.slep', 'AzsxdcAzsxd1')")
 
     cur.execute("SELECT COUNT(*) AS c FROM settings")
     if cur.fetchone()['c'] == 0:
@@ -390,6 +400,48 @@ def handler(event, context):
             cur.execute(f"DELETE FROM settings WHERE kind='{kind}'")
             for i, it in enumerate(items):
                 cur.execute(f"INSERT INTO settings (kind, value, sort_order) VALUES ('{kind}', {esc(it)}, {i + 1})")
+        result = {'ok': True}
+
+    # ── Пользователи (аутентификация) ─────────────────────────────────────────
+    elif action == 'user_login':
+        username = str(body.get('username', '')).strip()
+        password = str(body.get('password', ''))
+        cur.execute(f"SELECT id, username FROM app_users WHERE username={esc(username)} AND password={esc(password)} LIMIT 1")
+        row = cur.fetchone()
+        if row:
+            result = {'ok': True, 'username': row['username']}
+        else:
+            result = {'ok': False}
+
+    elif action == 'list_users':
+        cur.execute("SELECT id, username, created_at FROM app_users ORDER BY created_at ASC")
+        result = {'users': [jsonable(r) for r in cur.fetchall()]}
+
+    elif action == 'add_user':
+        username = str(body.get('username', '')).strip()
+        password = str(body.get('password', ''))
+        if not username or not password:
+            result = {'ok': False, 'error': 'Логин и пароль обязательны'}
+        else:
+            cur.execute(f"SELECT id FROM app_users WHERE username={esc(username)} LIMIT 1")
+            if cur.fetchone():
+                result = {'ok': False, 'error': 'Логин уже занят'}
+            else:
+                cur.execute(f"INSERT INTO app_users (username, password) VALUES ({esc(username)}, {esc(password)})")
+                result = {'ok': True}
+
+    elif action == 'change_user_password':
+        uid = int(body.get('id'))
+        password = str(body.get('password', ''))
+        if not password:
+            result = {'ok': False, 'error': 'Пароль не может быть пустым'}
+        else:
+            cur.execute(f"UPDATE app_users SET password={esc(password)} WHERE id={uid}")
+            result = {'ok': True}
+
+    elif action == 'delete_user':
+        uid = int(body.get('id'))
+        cur.execute(f"DELETE FROM app_users WHERE id={uid}")
         result = {'ok': True}
 
     else:

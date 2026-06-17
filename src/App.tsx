@@ -1,9 +1,11 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/lib/auth";
+import RequireAuth from "@/components/RequireAuth";
+import Login from "./pages/Login";
 import Index from "./pages/Index";
 import Inspection from "./pages/Inspection";
 import Inspections from "./pages/Inspections";
@@ -22,21 +24,24 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/inspection" element={<Inspection />} />
-          <Route path="/inspections" element={<Inspections />} />
-          <Route path="/objects" element={<Objects />} />
-          <Route path="/add-object" element={<AddObject />} />
-          <Route path="/balance" element={<Balance />} />
-          <Route path="/purchases" element={<Purchases />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/admin" element={<Admin />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<RequireAuth><Index /></RequireAuth>} />
+            <Route path="/inspection" element={<RequireAuth><Inspection /></RequireAuth>} />
+            <Route path="/inspections" element={<RequireAuth><Inspections /></RequireAuth>} />
+            <Route path="/objects" element={<RequireAuth><Objects /></RequireAuth>} />
+            <Route path="/add-object" element={<RequireAuth><AddObject /></RequireAuth>} />
+            <Route path="/balance" element={<RequireAuth><Balance /></RequireAuth>} />
+            <Route path="/purchases" element={<RequireAuth><Purchases /></RequireAuth>} />
+            <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
+            <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
