@@ -61,8 +61,12 @@ const Index = () => {
       <header className="border-b border-border bg-card/70 backdrop-blur-sm">
         <div className="container max-w-5xl flex items-center justify-between py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center bg-foreground text-accent rounded-sm">
-              <Icon name="HardHat" size={22} />
+            <div className="flex h-10 w-10 items-center justify-center bg-foreground rounded-sm overflow-hidden p-1.5">
+              <img
+                src="https://cdn.poehali.dev/projects/c00b6d94-7991-4278-a41e-54f2a348ad20/bucket/480fcb47-c795-4ae7-a82c-ab902467d38c.png"
+                alt="СтройКонтроль"
+                className="w-full h-full object-contain invert"
+              />
             </div>
             <div>
               <h1 className="font-display text-xl font-600 uppercase tracking-wider leading-none">
