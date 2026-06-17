@@ -230,6 +230,28 @@ def handler(event, context):
             WHERE id={oid}''')
         result = {'ok': True}
 
+    elif action == 'delete_object':
+        oid = int(body.get('id'))
+        # Получаем имя клиента для поиска связанных осмотров
+        cur.execute(f"SELECT customer_last_name, customer_first_name, address FROM objects WHERE id={oid} LIMIT 1")
+        nr = cur.fetchone()
+        if nr:
+            parts = [nr['customer_last_name'], nr['customer_first_name']]
+            base_name = ' '.join(p for p in parts if p)
+            # Удаляем закупки, связанные с осмотрами этого объекта
+            cur.execute(f"""
+                DELETE FROM purchases WHERE inspection_id IN (
+                    SELECT id FROM inspections WHERE object_name LIKE {esc(base_name + '%')}
+                )
+            """)
+            # Удаляем осмотры
+            cur.execute(f"DELETE FROM inspections WHERE object_name LIKE {esc(base_name + '%')}")
+        # Удаляем стоимости этапов
+        cur.execute(f"DELETE FROM stage_costs WHERE object_id={oid}")
+        # Удаляем сам объект
+        cur.execute(f"DELETE FROM objects WHERE id={oid}")
+        result = {'ok': True}
+
     # ── Получение последнего принятого этапа объекта ─────────────────────────
     elif action == 'get_last_stage':
         obj_name = body.get('object_name') or params.get('object_name', '')

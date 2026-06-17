@@ -78,6 +78,11 @@ const Admin = () => {
     toast({ title: 'Объект обновлён', description: fullName(o) });
   };
 
+  const deleteObject = (id: number) => {
+    setObjects((prev) => prev.filter((x) => x.id !== id));
+    toast({ title: 'Объект удалён', description: 'Все связанные данные удалены' });
+  };
+
   const saveList = async (kind: 'stage' | 'supply', items: string[]) => {
     await api('set_list', { kind, items: items.filter((i) => i.trim()) });
     toast({ title: 'Список обновлён' });
@@ -183,7 +188,7 @@ const Admin = () => {
       <main className="container max-w-3xl py-8 sm:py-10 space-y-6">
 
         {/* Объекты */}
-        <ObjectsSection objects={objects} stages={stages} onSave={saveObject} />
+        <ObjectsSection objects={objects} stages={stages} onSave={saveObject} onDelete={deleteObject} />
 
         {/* Списки */}
         <ListEditor

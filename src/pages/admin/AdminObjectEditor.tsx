@@ -12,15 +12,19 @@ const ObjectEditor = ({
   obj,
   stages,
   onSave,
+  onDelete,
 }: {
   obj: BuildObject;
   stages: string[];
   onSave: (o: BuildObject) => void;
+  onDelete: (id: number) => void;
 }) => {
   const [o, setO] = useState<BuildObject>({ ...obj });
   const [stageCosts, setStageCosts] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'info' | 'stages'>('info');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -38,22 +42,60 @@ const ObjectEditor = ({
     await api('set_stage_cost', { object_id: obj.id, stage, cost });
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    await api('delete_object', { id: obj.id });
+    onDelete(obj.id);
+  };
+
   return (
     <div className="border border-border rounded-sm overflow-hidden">
-      <button
-        onClick={() => setOpen((p) => !p)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-background hover:bg-secondary transition text-left"
-      >
-        <span className="font-display uppercase tracking-wide text-sm">{fullName(obj)}</span>
-        <div className="flex items-center gap-2">
-          {obj.address && (
-            <span className="font-mono text-xs text-muted-foreground hidden sm:block truncate max-w-[200px]">
-              {obj.address}
-            </span>
-          )}
-          <Icon name={open ? 'ChevronUp' : 'ChevronDown'} size={16} className="text-muted-foreground shrink-0" />
-        </div>
-      </button>
+      {/* Шапка аккордеона */}
+      <div className="flex items-center bg-background hover:bg-secondary transition">
+        <button
+          onClick={() => setOpen((p) => !p)}
+          className="flex-1 flex items-center justify-between px-4 py-3 text-left min-w-0"
+        >
+          <span className="font-display uppercase tracking-wide text-sm truncate">{fullName(obj)}</span>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            {obj.address && (
+              <span className="font-mono text-xs text-muted-foreground hidden sm:block truncate max-w-[180px]">
+                {obj.address}
+              </span>
+            )}
+            <Icon name={open ? 'ChevronUp' : 'ChevronDown'} size={16} className="text-muted-foreground" />
+          </div>
+        </button>
+
+        {/* Кнопка удаления */}
+        {!confirmDelete ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+            title="Удалить объект"
+            className="flex h-full px-3 py-3 items-center border-l border-border text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition shrink-0"
+          >
+            <Icon name="Trash2" size={15} />
+          </button>
+        ) : (
+          <div className="flex items-center gap-1 border-l border-border px-2 py-2 shrink-0 bg-destructive/5">
+            <span className="text-xs text-destructive font-mono hidden sm:block">Удалить?</span>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-1 px-2 h-7 rounded-sm bg-destructive text-white text-xs font-display uppercase tracking-wide hover:bg-destructive/90 transition disabled:opacity-60"
+            >
+              {deleting ? <Icon name="Loader" size={12} className="animate-spin" /> : <Icon name="Check" size={12} />}
+              Да
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex items-center px-2 h-7 rounded-sm border border-border text-xs font-display uppercase tracking-wide hover:bg-secondary transition"
+            >
+              Нет
+            </button>
+          </div>
+        )}
+      </div>
 
       {open && (
         <div className="border-t border-border p-4 space-y-4">
@@ -74,7 +116,6 @@ const ObjectEditor = ({
 
           {tab === 'info' && (
             <div className="space-y-4">
-              {/* Заказчик */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <Lbl>Фамилия</Lbl>
@@ -198,10 +239,12 @@ export const ObjectsSection = ({
   objects,
   stages,
   onSave,
+  onDelete,
 }: {
   objects: BuildObject[];
   stages: string[];
   onSave: (o: BuildObject) => void;
+  onDelete: (id: number) => void;
 }) => (
   <Section title="Редактирование объектов" icon="Building2">
     {objects.length === 0 ? (
@@ -209,7 +252,7 @@ export const ObjectsSection = ({
     ) : (
       <div className="space-y-2">
         {objects.map((o) => (
-          <ObjectEditor key={o.id} obj={o} stages={stages} onSave={onSave} />
+          <ObjectEditor key={o.id} obj={o} stages={stages} onSave={onSave} onDelete={onDelete} />
         ))}
       </div>
     )}
