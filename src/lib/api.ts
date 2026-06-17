@@ -33,6 +33,7 @@ export interface BuildObject {
   mortgage_cost?: number;
   bank?: string;
   note?: string;
+  actual_expenses?: number;
 }
 
 export interface Inspection {

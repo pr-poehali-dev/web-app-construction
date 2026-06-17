@@ -50,7 +50,7 @@ const ObjectCard = ({ o, stage }: { o: BuildObject; stage?: string }) => (
       ))}
     </div>
 
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-2 mb-2">
       {[
         { l: 'Стоимость по договору', v: o.cost },
         { l: 'План. стоимость стр-ва', v: o.self_cost },
@@ -61,6 +61,26 @@ const ObjectCard = ({ o, stage }: { o: BuildObject; stage?: string }) => (
           <p className="font-display text-sm font-500 mt-0.5">{fmt(f.v)}</p>
         </div>
       ))}
+    </div>
+    <div className="grid grid-cols-2 gap-2">
+      <div className="border border-border rounded-sm px-3 py-2 bg-background/40">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Фактические расходы</p>
+        <p className="font-display text-sm font-500 mt-0.5">{fmt(o.actual_expenses)}</p>
+      </div>
+      <div className={`rounded-sm px-3 py-2 border ${
+        ((o.cost || 0) - (o.actual_expenses || 0)) >= 0
+          ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800'
+          : 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800'
+      }`}>
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Прибыль</p>
+        <p className={`font-display text-sm font-600 mt-0.5 ${
+          ((o.cost || 0) - (o.actual_expenses || 0)) >= 0
+            ? 'text-emerald-700 dark:text-emerald-400'
+            : 'text-red-600 dark:text-red-400'
+        }`}>
+          {fmt((o.cost || 0) - (o.actual_expenses || 0))}
+        </p>
+      </div>
     </div>
 
     {o.note && (

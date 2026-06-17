@@ -166,11 +166,26 @@ def handler(event, context):
     # ── Объекты ──────────────────────────────────────────────────────────────
     if action == 'list_objects':
         cur.execute("""
-            SELECT * FROM objects
+            SELECT o.*,
+                COALESCE((
+                    SELECT SUM(sc.cost)
+                    FROM stage_costs sc
+                    WHERE sc.object_id = o.id
+                      AND EXISTS (
+                          SELECT 1 FROM inspections i
+                          WHERE i.stage = sc.stage
+                            AND i.stage_passed = 'Да'
+                            AND (
+                              i.object_name LIKE CONCAT(o.customer_last_name, '%')
+                              OR i.object_name LIKE CONCAT(o.customer_last_name, ' ', COALESCE(o.customer_first_name, ''), '%')
+                            )
+                      )
+                ), 0) AS actual_expenses
+            FROM objects o
             ORDER BY
-                CASE WHEN contract_sign_date IS NOT NULL THEN 0 ELSE 1 END,
-                contract_sign_date ASC NULLS LAST,
-                created_at ASC
+                CASE WHEN o.contract_sign_date IS NOT NULL THEN 0 ELSE 1 END,
+                o.contract_sign_date ASC NULLS LAST,
+                o.created_at ASC
         """)
         result = {'objects': [jsonable(r) for r in cur.fetchall()]}
 
