@@ -54,8 +54,10 @@ const Inspections = () => {
                   {ins.object_name}
                 </h3>
                 {ins.created_at && (
-                  <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(ins.created_at).toLocaleDateString('ru-RU')}
+                  <span className="font-mono text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1.5">
+                    <Icon name="Clock" size={12} />
+                    {new Date(ins.created_at).toLocaleDateString('ru-RU')}{' '}
+                    {new Date(ins.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
               </div>
