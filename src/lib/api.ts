@@ -18,10 +18,14 @@ export interface BuildObject {
   customer_first_name?: string;
   customer_middle_name?: string;
   customer_phone?: string;
+  customer_email?: string;
   project?: string;
-  area_dsp?: number;
+  area_living?: number;
+  area_total?: number;
   address?: string;
-  contract_number?: string;
+  cadastral_number?: string;
+  contract_prelim_number?: string;
+  contract_main_number?: string;
   contract_sign_date?: string;
   contract_end_date?: string;
   cost?: number;

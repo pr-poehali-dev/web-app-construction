@@ -13,20 +13,25 @@ const daysLeft = (dateStr?: string) => {
   return Math.round((d.getTime() - today.getTime()) / 86400000);
 };
 
+// Бардовый — только если дата оплаты СЕГОДНЯ (dl === 0)
+// Красный — менее 3 дней до оплаты (но не сегодня)
+// Жёлтый — менее 7 дней
+// Зелёный — заказано, срок ещё далеко
 const cardStyle = (p: Purchase) => {
   if (p.status === 'paid') return 'bg-blue-600 text-white border-blue-700';
-  // Срочность по дате оплаты если есть, иначе по дате поставки
-  const dl = daysLeft(p.payment_date || p.delivery_date);
+  // Для заказанных срочность считаем по дате оплаты
   if (p.status === 'ordered') {
-    if (dl <= 1) return 'bg-red-800 text-white border-red-900';
-    if (dl < 3) return 'bg-red-600 text-white border-red-700';
-    if (dl < 7) return 'bg-amber-400 text-amber-950 border-amber-500';
-    return 'bg-emerald-600 text-white border-emerald-700';
+    const dlPay = daysLeft(p.payment_date);
+    if (dlPay === 0) return 'bg-red-900 text-white border-red-950';   // сегодня — тёмно-бордовый
+    if (dlPay < 3)  return 'bg-red-600 text-white border-red-700';    // менее 3 дней
+    if (dlPay < 7)  return 'bg-amber-400 text-amber-950 border-amber-500'; // менее 7 дней
+    return 'bg-emerald-600 text-white border-emerald-700';             // далеко — зелёный
   }
+  // Для новых (не заказанных) — по дате поставки
   const dlDelivery = daysLeft(p.delivery_date);
-  if (dlDelivery <= 1) return 'bg-red-800 text-white border-red-900';
-  if (dlDelivery < 3) return 'bg-red-600 text-white border-red-700';
-  if (dlDelivery < 7) return 'bg-amber-400 text-amber-950 border-amber-500';
+  if (dlDelivery === 0) return 'bg-red-900 text-white border-red-950'; // сегодня — бордовый
+  if (dlDelivery < 3)   return 'bg-red-600 text-white border-red-700';
+  if (dlDelivery < 7)   return 'bg-amber-400 text-amber-950 border-amber-500';
   return 'bg-card text-foreground border-border';
 };
 
@@ -209,7 +214,7 @@ const Purchases = () => {
             <Legend color="bg-card border-border" label="более 7 дней" />
             <Legend color="bg-amber-400 border-amber-500" label="менее 7 дней" />
             <Legend color="bg-red-600 border-red-700" label="менее 3 дней" />
-            <Legend color="bg-red-800 border-red-900" label="сегодня / завтра" />
+            <Legend color="bg-red-900 border-red-950" label="сегодня (день оплаты)" />
             <Legend color="bg-emerald-600 border-emerald-700" label="заказано" />
             <Legend color="bg-blue-600 border-blue-700" label="оплачено" />
           </div>

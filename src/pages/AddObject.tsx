@@ -36,10 +36,14 @@ const AddObject = () => {
     customer_first_name: '',
     customer_middle_name: '',
     customer_phone: '',
+    customer_email: '',
     project: '',
-    area_dsp: '',
+    area_living: '',
+    area_total: '',
     address: '',
-    contract_number: '',
+    cadastral_number: '',
+    contract_prelim_number: '',
+    contract_main_number: '',
     contract_sign_date: '',
     contract_end_date: '',
     cost: '',
@@ -90,6 +94,8 @@ const AddObject = () => {
 
       <main className="container max-w-2xl py-8 sm:py-10">
         <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* Заказчик */}
           <div className="bg-card border border-border rounded-sm p-5 sm:p-6 space-y-5 animate-fade-up">
             <div className="flex items-center gap-2 pb-1">
               <span className="h-2 w-2 rounded-full bg-accent" />
@@ -106,11 +112,17 @@ const AddObject = () => {
                 <Input value={f.customer_middle_name} onChange={(e) => set('customer_middle_name', e.target.value)} className="h-11" />
               </Field>
             </div>
-            <Field label="Номер телефона">
-              <Input type="tel" value={f.customer_phone} onChange={(e) => set('customer_phone', e.target.value)} className="h-11" placeholder="+7 ___ ___-__-__" />
-            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Номер телефона">
+                <Input type="tel" value={f.customer_phone} onChange={(e) => set('customer_phone', e.target.value)} className="h-11" placeholder="+7 ___ ___-__-__" />
+              </Field>
+              <Field label="Электронная почта">
+                <Input type="email" value={f.customer_email} onChange={(e) => set('customer_email', e.target.value)} className="h-11" placeholder="example@mail.ru" />
+              </Field>
+            </div>
           </div>
 
+          {/* Объект и договор */}
           <div className="bg-card border border-border rounded-sm p-5 sm:p-6 space-y-5 animate-fade-up">
             <div className="flex items-center gap-2 pb-1">
               <span className="h-2 w-2 rounded-full bg-accent" />
@@ -119,15 +131,28 @@ const AddObject = () => {
             <Field label="Проект">
               <Input value={f.project} onChange={(e) => set('project', e.target.value)} className="h-11" />
             </Field>
-            <Field label="Площадь по ДСП с террасами">
-              <Input type="number" step="0.01" value={f.area_dsp} onChange={(e) => set('area_dsp', e.target.value)} className="h-11" placeholder="м²" />
-            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Площадь жилая">
+                <Input type="number" step="0.01" value={f.area_living} onChange={(e) => set('area_living', e.target.value)} className="h-11" placeholder="м²" />
+              </Field>
+              <Field label="Площадь общая">
+                <Input type="number" step="0.01" value={f.area_total} onChange={(e) => set('area_total', e.target.value)} className="h-11" placeholder="м²" />
+              </Field>
+            </div>
             <Field label="Адрес">
               <Input value={f.address} onChange={(e) => set('address', e.target.value)} className="h-11" />
             </Field>
-            <Field label="Номер договора">
-              <Input value={f.contract_number} onChange={(e) => set('contract_number', e.target.value)} className="h-11" />
+            <Field label="Кадастровый номер">
+              <Input value={f.cadastral_number} onChange={(e) => set('cadastral_number', e.target.value)} className="h-11" placeholder="00:00:000000:000" />
             </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Номер предварительного договора">
+                <Input value={f.contract_prelim_number} onChange={(e) => set('contract_prelim_number', e.target.value)} className="h-11" />
+              </Field>
+              <Field label="Номер основного договора">
+                <Input value={f.contract_main_number} onChange={(e) => set('contract_main_number', e.target.value)} className="h-11" />
+              </Field>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Срок подписания договора">
                 <input type="date" value={f.contract_sign_date} onChange={(e) => set('contract_sign_date', e.target.value)} className={dateInputClass} />
@@ -138,19 +163,20 @@ const AddObject = () => {
             </div>
           </div>
 
+          {/* Финансы */}
           <div className="bg-card border border-border rounded-sm p-5 sm:p-6 space-y-5 animate-fade-up">
             <div className="flex items-center gap-2 pb-1">
               <span className="h-2 w-2 rounded-full bg-accent" />
               <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">финансы</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Стоимость">
+              <Field label="Стоимость по договору">
                 <Input type="number" step="0.01" value={f.cost} onChange={(e) => set('cost', e.target.value)} className="h-11" placeholder="₽" />
               </Field>
-              <Field label="Себестоимость">
+              <Field label="Планируемая стоимость строительства">
                 <Input type="number" step="0.01" value={f.self_cost} onChange={(e) => set('self_cost', e.target.value)} className="h-11" placeholder="₽" />
               </Field>
-              <Field label="Стоимость по ипотеке">
+              <Field label="Оплата агенту">
                 <Input type="number" step="0.01" value={f.mortgage_cost} onChange={(e) => set('mortgage_cost', e.target.value)} className="h-11" placeholder="₽" />
               </Field>
             </div>

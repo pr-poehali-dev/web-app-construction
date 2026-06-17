@@ -27,10 +27,14 @@ def ensure_schema(cur):
             customer_first_name VARCHAR(255),
             customer_middle_name VARCHAR(255),
             customer_phone VARCHAR(50),
+            customer_email VARCHAR(255),
             project VARCHAR(255),
-            area_dsp NUMERIC(10,2),
+            area_living NUMERIC(10,2),
+            area_total NUMERIC(10,2),
             address TEXT,
-            contract_number VARCHAR(100),
+            cadastral_number VARCHAR(100),
+            contract_prelim_number VARCHAR(100),
+            contract_main_number VARCHAR(100),
             contract_sign_date DATE,
             contract_end_date DATE,
             cost NUMERIC(14,2) DEFAULT 0,
@@ -80,6 +84,17 @@ def ensure_schema(cur):
             UNIQUE(object_id, stage)
         );
     ''')
+    # Добавляем новые колонки к существующим таблицам (безопасно)
+    for col_sql in [
+        "ALTER TABLE objects ADD COLUMN IF NOT EXISTS customer_email VARCHAR(255)",
+        "ALTER TABLE objects ADD COLUMN IF NOT EXISTS area_living NUMERIC(10,2)",
+        "ALTER TABLE objects ADD COLUMN IF NOT EXISTS area_total NUMERIC(10,2)",
+        "ALTER TABLE objects ADD COLUMN IF NOT EXISTS cadastral_number VARCHAR(100)",
+        "ALTER TABLE objects ADD COLUMN IF NOT EXISTS contract_prelim_number VARCHAR(100)",
+        "ALTER TABLE objects ADD COLUMN IF NOT EXISTS contract_main_number VARCHAR(100)",
+    ]:
+        cur.execute(col_sql)
+
     cur.execute("SELECT COUNT(*) AS c FROM settings")
     if cur.fetchone()['c'] == 0:
         stages = ['Фундамент', 'Стены', 'Армопояс', 'Кровля', 'Фасад', 'Цоколь',
@@ -150,8 +165,6 @@ def handler(event, context):
 
     # ── Объекты ──────────────────────────────────────────────────────────────
     if action == 'list_objects':
-        # Сортировка: сначала те, у кого есть дата договора (по возрастанию),
-        # потом без даты (по created_at)
         cur.execute("""
             SELECT * FROM objects
             ORDER BY
@@ -163,30 +176,50 @@ def handler(event, context):
 
     elif action == 'add_object':
         cur.execute(f'''INSERT INTO objects
-            (customer_last_name, customer_first_name, customer_middle_name, customer_phone,
-             project, area_dsp, address, contract_number, contract_sign_date, contract_end_date,
+            (customer_last_name, customer_first_name, customer_middle_name,
+             customer_phone, customer_email,
+             project, area_living, area_total, address, cadastral_number,
+             contract_prelim_number, contract_main_number,
+             contract_sign_date, contract_end_date,
              cost, self_cost, mortgage_cost, bank, note)
-            VALUES ({esc(body.get('customer_last_name'))}, {esc(body.get('customer_first_name'))},
-             {esc(body.get('customer_middle_name'))}, {esc(body.get('customer_phone'))},
-             {esc(body.get('project'))}, {num(body.get('area_dsp'))}, {esc(body.get('address'))},
-             {esc(body.get('contract_number'))}, {esc(body.get('contract_sign_date'))},
-             {esc(body.get('contract_end_date'))}, {num(body.get('cost'))}, {num(body.get('self_cost'))},
-             {num(body.get('mortgage_cost'))}, {esc(body.get('bank'))}, {esc(body.get('note'))})
+            VALUES (
+             {esc(body.get('customer_last_name'))},
+             {esc(body.get('customer_first_name'))},
+             {esc(body.get('customer_middle_name'))},
+             {esc(body.get('customer_phone'))},
+             {esc(body.get('customer_email'))},
+             {esc(body.get('project'))},
+             {num(body.get('area_living'))},
+             {num(body.get('area_total'))},
+             {esc(body.get('address'))},
+             {esc(body.get('cadastral_number'))},
+             {esc(body.get('contract_prelim_number'))},
+             {esc(body.get('contract_main_number'))},
+             {esc(body.get('contract_sign_date'))},
+             {esc(body.get('contract_end_date'))},
+             {num(body.get('cost'))},
+             {num(body.get('self_cost'))},
+             {num(body.get('mortgage_cost'))},
+             {esc(body.get('bank'))},
+             {esc(body.get('note'))})
             RETURNING id''')
         result = {'id': cur.fetchone()['id']}
 
     elif action == 'update_object':
-        # Полное редактирование всех полей объекта (для администратора)
         oid = int(body.get('id'))
         cur.execute(f'''UPDATE objects SET
             customer_last_name={esc(body.get('customer_last_name'))},
             customer_first_name={esc(body.get('customer_first_name'))},
             customer_middle_name={esc(body.get('customer_middle_name'))},
             customer_phone={esc(body.get('customer_phone'))},
+            customer_email={esc(body.get('customer_email'))},
             project={esc(body.get('project'))},
-            area_dsp={num(body.get('area_dsp'))},
+            area_living={num(body.get('area_living'))},
+            area_total={num(body.get('area_total'))},
             address={esc(body.get('address'))},
-            contract_number={esc(body.get('contract_number'))},
+            cadastral_number={esc(body.get('cadastral_number'))},
+            contract_prelim_number={esc(body.get('contract_prelim_number'))},
+            contract_main_number={esc(body.get('contract_main_number'))},
             contract_sign_date={esc(body.get('contract_sign_date'))},
             contract_end_date={esc(body.get('contract_end_date'))},
             cost={num(body.get('cost'))},
@@ -196,6 +229,23 @@ def handler(event, context):
             note={esc(body.get('note'))}
             WHERE id={oid}''')
         result = {'ok': True}
+
+    # ── Получение последнего принятого этапа объекта ─────────────────────────
+    elif action == 'get_last_stage':
+        obj_name = body.get('object_name') or params.get('object_name', '')
+        if obj_name:
+            cur.execute(f"""
+                SELECT stage, stage_passed FROM inspections
+                WHERE object_name = {esc(obj_name)}
+                ORDER BY created_at DESC LIMIT 1
+            """)
+            row = cur.fetchone()
+            result = {
+                'stage': row['stage'] if row else None,
+                'stage_passed': row['stage_passed'] if row else None
+            }
+        else:
+            result = {'stage': None, 'stage_passed': None}
 
     # ── Осмотры ───────────────────────────────────────────────────────────────
     elif action == 'list_inspections':
@@ -215,19 +265,13 @@ def handler(event, context):
             RETURNING id''')
         ins_id = cur.fetchone()['id']
 
-        # Создаём закупку если есть поставка
         if body.get('supply') and body.get('delivery_date'):
             cur.execute(f'''INSERT INTO purchases (inspection_id, object_name, supply, delivery_date, status)
                 VALUES ({ins_id}, {esc(body.get('object_name'))}, {esc(body.get('supply'))},
                 {esc(body.get('delivery_date'))}, 'new')''')
 
-        # Если этап принят (stage_passed == 'Да') — вычитаем стоимость этапа из себестоимости
         if body.get('stage_passed') == 'Да' and body.get('object_name') and body.get('stage'):
-            obj_name = body.get('object_name')
             stage = body.get('stage')
-            # Ищем объект по имени (объект_name = "Фамилия Имя — адрес")
-            # Стоимость этапа хранится в stage_costs по object_id
-            # Попробуем найти object_id через stage_costs напрямую (если есть запись)
             cur.execute(f"""
                 SELECT sc.cost, sc.object_id FROM stage_costs sc
                 WHERE sc.stage = {esc(stage)}
