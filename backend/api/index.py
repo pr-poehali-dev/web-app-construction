@@ -442,72 +442,16 @@ def handler(event, context):
     elif action == 'user_login':
         username = str(body.get('username', '')).strip()
         password = str(body.get('password', ''))
-        cur.execute(f"SELECT id, username, is_admin, failed_attempts, first_failed_at, locked_until FROM app_users WHERE username={esc(username)} LIMIT 1")
+        cur.execute(f"SELECT id, username, is_admin FROM app_users WHERE username={esc(username)} AND password={esc(password)} LIMIT 1")
         row = cur.fetchone()
-        if not row:
-            result = {'ok': False, 'error': 'Неверный логин или пароль'}
+        if row:
+            result = {'ok': True, 'username': row['username'], 'is_admin': bool(row['is_admin'])}
         else:
-            from datetime import datetime, timezone, timedelta
-            now = datetime.now(timezone.utc)
-            locked_until = row['locked_until']
-            # Проверяем активную блокировку
-            if locked_until:
-                if locked_until.tzinfo is None:
-                    locked_until = locked_until.replace(tzinfo=timezone.utc)
-                if now < locked_until:
-                    remaining = int((locked_until - now).total_seconds() / 60)
-                    result = {'ok': False, 'locked': True, 'error': f'Аккаунт заблокирован. Попробуйте через {remaining} мин.'}
-                    cur.close(); conn.close()
-                    return {'statusCode': 200, 'headers': CORS, 'body': json.dumps(result, ensure_ascii=False)}
-                else:
-                    # Блокировка истекла — сбрасываем
-                    cur.execute(f"UPDATE app_users SET failed_attempts=0, first_failed_at=NULL, locked_until=NULL WHERE id={row['id']}")
-                    row = dict(row); row['failed_attempts'] = 0; row['first_failed_at'] = None
-
-            if row['password'] == password:
-                # Успешный вход — сбрасываем счётчик
-                cur.execute(f"UPDATE app_users SET failed_attempts=0, first_failed_at=NULL, locked_until=NULL WHERE id={row['id']}")
-                result = {'ok': True, 'username': row['username'], 'is_admin': bool(row['is_admin'])}
-            else:
-                # Неверный пароль
-                attempts = (row['failed_attempts'] or 0) + 1
-                first_failed = row['first_failed_at']
-                if first_failed and first_failed.tzinfo is None:
-                    first_failed = first_failed.replace(tzinfo=timezone.utc)
-                window = timedelta(minutes=15)
-                # Сбрасываем окно если прошло больше 15 минут с первой ошибки
-                if first_failed and (now - first_failed) > window:
-                    attempts = 1
-                    first_failed = now
-                elif not first_failed:
-                    first_failed = now
-                if attempts >= 3:
-                    locked_until_new = now + timedelta(hours=24)
-                    cur.execute(f"UPDATE app_users SET failed_attempts={attempts}, first_failed_at='{first_failed.isoformat()}', locked_until='{locked_until_new.isoformat()}' WHERE id={row['id']}")
-                    result = {'ok': False, 'locked': True, 'error': 'Аккаунт заблокирован на 24 часа после 3 неверных попыток.'}
-                else:
-                    cur.execute(f"UPDATE app_users SET failed_attempts={attempts}, first_failed_at='{first_failed.isoformat()}' WHERE id={row['id']}")
-                    left = 3 - attempts
-                    result = {'ok': False, 'error': f'Неверный логин или пароль. Осталось попыток: {left}'}
+            result = {'ok': False}
 
     elif action == 'list_users':
-        cur.execute("SELECT id, username, is_admin, locked_until, failed_attempts, created_at FROM app_users ORDER BY created_at ASC")
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
-        users_out = []
-        for u in cur.fetchall():
-            d = jsonable(u)
-            lu = u['locked_until']
-            if lu:
-                if lu.tzinfo is None:
-                    lu = lu.replace(tzinfo=timezone.utc)
-                d['is_locked'] = now < lu
-                d['locked_until_iso'] = lu.isoformat()
-            else:
-                d['is_locked'] = False
-                d['locked_until_iso'] = None
-            users_out.append(d)
-        result = {'users': users_out}
+        cur.execute("SELECT id, username, is_admin, created_at FROM app_users ORDER BY created_at ASC")
+        result = {'users': [jsonable(r) for r in cur.fetchall()]}
 
     elif action == 'add_user':
         username = str(body.get('username', '')).strip()
@@ -536,11 +480,6 @@ def handler(event, context):
         cur.execute(f"UPDATE app_users SET is_admin = NOT is_admin WHERE id={uid} RETURNING is_admin")
         row = cur.fetchone()
         result = {'ok': True, 'is_admin': bool(row['is_admin']) if row else False}
-
-    elif action == 'unlock_user':
-        uid = int(body.get('id'))
-        cur.execute(f"UPDATE app_users SET failed_attempts=0, first_failed_at=NULL, locked_until=NULL WHERE id={uid}")
-        result = {'ok': True}
 
     elif action == 'delete_user':
         uid = int(body.get('id'))
