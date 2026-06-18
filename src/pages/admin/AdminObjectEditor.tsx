@@ -148,8 +148,8 @@ const ObjectEditor = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Lbl>Площадь по ДСП (м²)</Lbl>
-                  <Input type="number" step="0.01" value={o.area_dsp ?? ''} onChange={(e) => set('area_dsp', e.target.value)} className="h-10" />
+                  <Lbl>Площадь общая (м²)</Lbl>
+                  <Input type="number" step="0.01" value={o.area_total ?? ''} onChange={(e) => set('area_total', e.target.value)} className="h-10" />
                 </div>
                 <div>
                   <Lbl>Адрес</Lbl>
@@ -157,11 +157,17 @@ const ObjectEditor = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Lbl>Номер договора</Lbl>
-                  <Input value={o.contract_number || ''} onChange={(e) => set('contract_number', e.target.value)} className="h-10" />
+                  <Lbl>Номер предварительного договора</Lbl>
+                  <Input value={o.contract_prelim_number || ''} onChange={(e) => set('contract_prelim_number', e.target.value)} className="h-10" />
                 </div>
+                <div>
+                  <Lbl>Номер основного договора</Lbl>
+                  <Input value={o.contract_main_number || ''} onChange={(e) => set('contract_main_number', e.target.value)} className="h-10" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Lbl>Дата подписания</Lbl>
                   <input type="date" value={o.contract_sign_date || ''} onChange={(e) => set('contract_sign_date', e.target.value)} className={dateInputClass} />

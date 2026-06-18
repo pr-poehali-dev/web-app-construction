@@ -41,10 +41,11 @@ const ObjectCard = ({ o, stage }: { o: BuildObject; stage?: string }) => (
       </div>
     </div>
 
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
       {[
-        { l: 'Договор', v: o.contract_number || '—' },
-        { l: 'Площадь', v: o.area_dsp ? `${o.area_dsp} м²` : '—' },
+        { l: 'Осн. договор', v: o.contract_main_number || '—' },
+        { l: 'Пред. договор', v: o.contract_prelim_number || '—' },
+        { l: 'Площадь общая', v: o.area_total ? `${o.area_total} м²` : '—' },
         { l: 'Нач. договора', v: dateRu(o.contract_sign_date) },
         { l: 'Окон. договора', v: dateRu(o.contract_end_date) },
       ].map((f) => (
