@@ -8,16 +8,21 @@ const COMPLETION_TYPES = ['Теплый контур', 'Черновая отд�
 const fmt = (n?: number) =>
   n == null || n === 0 ? '—' : new Intl.NumberFormat('ru-RU').format(n) + ' ₽';
 
+const dateRu = (s?: string) =>
+  s ? new Date(s).toLocaleDateString('ru-RU') : '—';
+
 const Analytics = () => {
   const navigate = useNavigate();
   const [objects, setObjects] = useState<BuildObject[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [stages, setStages] = useState<string[]>([]);
 
   useEffect(() => {
     api<{ objects: BuildObject[] }>('list_objects').then((d) => setObjects(d.objects || []));
     api<{ inspections: Inspection[] }>('list_inspections').then((d) => setInspections(d.inspections || []));
     api<{ purchases: Purchase[] }>('list_purchases').then((d) => setPurchases(d.purchases || []));
+    api<{ stages: string[] }>('get_settings').then((d) => setStages(d.stages || []));
   }, []);
 
   const done = inspections.filter((i) => i.stage === 'Дом сдан').length;
@@ -31,6 +36,27 @@ const Analytics = () => {
       completionMap[i.object_name] = i.stage_completion ?? null;
     }
   });
+
+  // Для каждого объекта строим карту: этап → последний % (берём последний осмотр по каждому этапу)
+  // inspections уже отсортированы DESC по created_at
+  const getStagePercents = (o: BuildObject): Record<string, number> => {
+    const lastName = o.customer_last_name;
+    const objInspections = inspections.filter(
+      (i) => i.object_name && i.object_name.startsWith(lastName)
+    );
+    const result: Record<string, number> = {};
+    // Идём от новых к старым — первый встреченный по каждому этапу — самый свежий
+    objInspections.forEach((i) => {
+      if (!i.stage) return;
+      if (i.stage in result) return; // уже есть более свежий
+      if (i.stage_passed === 'Да') {
+        result[i.stage] = 100;
+      } else if (i.stage_completion != null) {
+        result[i.stage] = i.stage_completion;
+      }
+    });
+    return result;
+  };
 
   // Статистика по комплектации
   const completionStats = COMPLETION_TYPES.map((type) => ({
@@ -212,6 +238,88 @@ const Analytics = () => {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        {/* Детальная таблица объектов с этапами */}
+        <div className="bg-card border border-border rounded-sm animate-fade-up overflow-hidden">
+          <div className="flex items-center gap-2 p-5 pb-0">
+            <Icon name="TableProperties" size={15} className="text-accent" />
+            <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              объекты · детальный прогресс по этапам
+            </p>
+          </div>
+
+          {objects.length === 0 ? (
+            <p className="text-muted-foreground text-sm p-5">Нет данных.</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/50">
+                    <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Фамилия</th>
+                    <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Адрес</th>
+                    <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Проект</th>
+                    <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Срок договора</th>
+                    {stages.map((s) => (
+                      <th key={s} className="text-center px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap max-w-[80px]">
+                        <span className="block truncate max-w-[72px]" title={s}>{s}</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {objects.map((o, idx) => {
+                    const percents = getStagePercents(o);
+                    return (
+                      <tr
+                        key={o.id}
+                        className={`border-b border-border last:border-0 ${idx % 2 === 1 ? 'bg-secondary/20' : ''}`}
+                      >
+                        <td className="px-4 py-3 font-display uppercase tracking-wide text-sm whitespace-nowrap">
+                          {[o.customer_last_name, o.customer_first_name].filter(Boolean).join(' ')}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs max-w-[160px]">
+                          <span className="block truncate" title={o.address || ''}>
+                            {o.address || '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">
+                          {o.project || '—'}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
+                          {dateRu(o.contract_end_date)}
+                        </td>
+                        {stages.map((s) => {
+                          const pct = percents[s];
+                          const isDone = pct === 100;
+                          const hasData = pct != null;
+                          return (
+                            <td key={s} className="px-3 py-3 text-center">
+                              {hasData ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <div className="w-10 bg-secondary rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${isDone ? 'bg-emerald-500' : 'bg-accent'}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span className={`font-mono text-[10px] ${isDone ? 'text-emerald-600 dark:text-emerald-400 font-600' : 'text-muted-foreground'}`}>
+                                    {pct}%
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-border font-mono text-[10px]">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
