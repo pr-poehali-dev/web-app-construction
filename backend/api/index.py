@@ -442,15 +442,15 @@ def handler(event, context):
     elif action == 'user_login':
         username = str(body.get('username', '')).strip()
         password = str(body.get('password', ''))
-        cur.execute(f"SELECT id, username FROM app_users WHERE username={esc(username)} AND password={esc(password)} LIMIT 1")
+        cur.execute(f"SELECT id, username, is_admin FROM app_users WHERE username={esc(username)} AND password={esc(password)} LIMIT 1")
         row = cur.fetchone()
         if row:
-            result = {'ok': True, 'username': row['username']}
+            result = {'ok': True, 'username': row['username'], 'is_admin': bool(row['is_admin'])}
         else:
             result = {'ok': False}
 
     elif action == 'list_users':
-        cur.execute("SELECT id, username, created_at FROM app_users ORDER BY created_at ASC")
+        cur.execute("SELECT id, username, is_admin, created_at FROM app_users ORDER BY created_at ASC")
         result = {'users': [jsonable(r) for r in cur.fetchall()]}
 
     elif action == 'add_user':
@@ -474,6 +474,12 @@ def handler(event, context):
         else:
             cur.execute(f"UPDATE app_users SET password={esc(password)} WHERE id={uid}")
             result = {'ok': True}
+
+    elif action == 'toggle_admin':
+        uid = int(body.get('id'))
+        cur.execute(f"UPDATE app_users SET is_admin = NOT is_admin WHERE id={uid} RETURNING is_admin")
+        row = cur.fetchone()
+        result = {'ok': True, 'is_admin': bool(row['is_admin']) if row else False}
 
     elif action == 'delete_user':
         uid = int(body.get('id'))

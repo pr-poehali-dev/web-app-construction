@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { api, Purchase, PurchaseAmount } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
 
 const daysLeft = (dateStr?: string) => {
   if (!dateStr) return 999;
@@ -41,7 +42,7 @@ const fmtAmount = (v: number) =>
   v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ── Блок стоимостей для одной закупки ─────────────────────────────────────
-const AmountsBlock = ({ purchase, isLight }: { purchase: Purchase; isLight: boolean }) => {
+const AmountsBlock = ({ purchase, isLight, canEdit }: { purchase: Purchase; isLight: boolean; canEdit: boolean }) => {
   const [rows, setRows] = useState<PurchaseAmount[]>(
     purchase.amounts && purchase.amounts.length > 0
       ? purchase.amounts
@@ -99,11 +100,20 @@ const AmountsBlock = ({ purchase, isLight }: { purchase: Purchase; isLight: bool
     ? 'bg-background border border-border text-foreground placeholder:text-muted-foreground focus:border-accent'
     : 'bg-black/15 border border-white/20 text-current placeholder:text-white/50 focus:border-white/50';
 
+  const readonlyBase = isLight
+    ? 'bg-muted/50 border border-border text-foreground'
+    : 'bg-black/10 border border-white/10 text-current opacity-80';
+
+  // Если нет данных и нельзя редактировать — не показываем блок
+  const hasData = rows.some((r) => r.amount > 0 || r.supplier);
+  if (!canEdit && !hasData) return null;
+
   return (
     <div className={`mt-3 pt-3 border-t ${isLight ? 'border-border' : 'border-white/20'}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`font-mono text-[11px] uppercase tracking-wider ${isLight ? 'text-muted-foreground' : 'opacity-70'}`}>
+        <span className={`font-mono text-[11px] uppercase tracking-wider flex items-center gap-1.5 ${isLight ? 'text-muted-foreground' : 'opacity-70'}`}>
           Стоимость
+          {!canEdit && <Icon name="Lock" size={11} className="opacity-50" />}
         </span>
         {saving && <Icon name="Loader" size={12} className="animate-spin opacity-50" />}
       </div>
@@ -117,15 +127,18 @@ const AmountsBlock = ({ purchase, isLight }: { purchase: Purchase; isLight: bool
                 type="text"
                 inputMode="decimal"
                 placeholder="0.00"
-                value={(row as PurchaseAmount & { _raw?: string })._raw ?? (row.amount > 0 ? String(row.amount) : '')}
-                onChange={(e) => updateRow(idx, 'amount', e.target.value)}
-                onBlur={(e) => {
+                readOnly={!canEdit}
+                value={canEdit
+                  ? ((row as PurchaseAmount & { _raw?: string })._raw ?? (row.amount > 0 ? String(row.amount) : ''))
+                  : (row.amount > 0 ? fmtAmount(row.amount) : '—')}
+                onChange={canEdit ? (e) => updateRow(idx, 'amount', e.target.value) : undefined}
+                onBlur={canEdit ? (e) => {
                   const v = parseFloat(e.target.value.replace(',', '.')) || 0;
                   const updated = rows.map((r, i) => i === idx ? { ...r, amount: Math.max(0, v), _raw: undefined } as PurchaseAmount : r);
                   setRows(updated);
                   saveToServer(updated);
-                }}
-                className={`h-8 w-32 rounded-sm px-2 text-sm font-mono outline-none transition ${inputBase}`}
+                } : undefined}
+                className={`h-8 w-32 rounded-sm px-2 text-sm font-mono outline-none transition ${canEdit ? inputBase : readonlyBase} ${!canEdit ? 'cursor-default' : ''}`}
               />
               <span className={`absolute right-2 text-xs font-mono ${isLight ? 'text-muted-foreground' : 'opacity-60'}`}>₽</span>
             </div>
@@ -133,37 +146,44 @@ const AmountsBlock = ({ purchase, isLight }: { purchase: Purchase; isLight: bool
             {/* Поставщик */}
             <input
               type="text"
-              placeholder="Поставщик"
+              placeholder={canEdit ? 'Поставщик' : ''}
+              readOnly={!canEdit}
               value={row.supplier}
-              onChange={(e) => updateRow(idx, 'supplier', e.target.value)}
-              className={`h-8 flex-1 rounded-sm px-2 text-sm outline-none transition ${inputBase}`}
+              onChange={canEdit ? (e) => updateRow(idx, 'supplier', e.target.value) : undefined}
+              className={`h-8 flex-1 rounded-sm px-2 text-sm outline-none transition ${canEdit ? inputBase : readonlyBase} ${!canEdit ? 'cursor-default' : ''}`}
             />
 
-            {/* Удалить строку */}
-            <button
-              onClick={() => removeRow(idx)}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition ${
-                isLight
-                  ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
-                  : 'opacity-60 hover:opacity-100 hover:bg-white/10'
-              }`}
-            >
-              <Icon name="X" size={13} />
-            </button>
+            {/* Удалить строку — только если можно редактировать */}
+            {canEdit && (
+              <button
+                onClick={() => removeRow(idx)}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition ${
+                  isLight
+                    ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                    : 'opacity-60 hover:opacity-100 hover:bg-white/10'
+                }`}
+              >
+                <Icon name="X" size={13} />
+              </button>
+            )}
           </div>
         ))}
       </div>
 
       <div className="flex items-center justify-between mt-2">
-        <button
-          onClick={addRow}
-          className={`flex items-center gap-1 text-xs font-mono transition ${
-            isLight ? 'text-muted-foreground hover:text-foreground' : 'opacity-60 hover:opacity-100'
-          }`}
-        >
-          <Icon name="Plus" size={13} />
-          добавить сумму
-        </button>
+        {canEdit ? (
+          <button
+            onClick={addRow}
+            className={`flex items-center gap-1 text-xs font-mono transition ${
+              isLight ? 'text-muted-foreground hover:text-foreground' : 'opacity-60 hover:opacity-100'
+            }`}
+          >
+            <Icon name="Plus" size={13} />
+            добавить сумму
+          </button>
+        ) : (
+          <span />
+        )}
         {rows.length > 1 && total > 0 && (
           <span className={`font-mono text-xs font-600 ${isLight ? 'text-foreground' : ''}`}>
             Итого: {fmtAmount(total)} ₽
@@ -177,6 +197,7 @@ const AmountsBlock = ({ purchase, isLight }: { purchase: Purchase; isLight: bool
 // ── Основная страница ──────────────────────────────────────────────────────
 const Purchases = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [items, setItems] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -277,7 +298,11 @@ const Purchases = () => {
               </div>
 
               {/* Стоимости */}
-              <AmountsBlock purchase={p} isLight={isLight(p)} />
+              <AmountsBlock
+                purchase={p}
+                isLight={isLight(p)}
+                canEdit={p.status !== 'paid' || (user?.isAdmin ?? false)}
+              />
 
               {/* Кнопки */}
               <div className="flex flex-wrap gap-2 items-center mt-4">

@@ -1,14 +1,15 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const STORAGE_KEY = 'sc_auth_user';
 
 interface AuthUser {
   username: string;
+  isAdmin: boolean;
 }
 
 interface AuthCtx {
   user: AuthUser | null;
-  login: (username: string) => void;
+  login: (username: string, isAdmin: boolean) => void;
   logout: () => void;
 }
 
@@ -28,8 +29,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   });
 
-  const login = (username: string) => {
-    const u = { username };
+  const login = (username: string, isAdmin: boolean) => {
+    const u = { username, isAdmin };
     setUser(u);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
   };
@@ -38,8 +39,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
   };
-
-  useEffect(() => {}, []);
 
   return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
 };

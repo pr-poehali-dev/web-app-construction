@@ -9,6 +9,7 @@ import { Section, Lbl } from './AdminShared';
 interface AppUser {
   id: number;
   username: string;
+  is_admin: boolean;
   created_at?: string;
 }
 
@@ -17,8 +18,6 @@ const AdminUsers = () => {
   const [newLogin, setNewLogin] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [adding, setAdding] = useState(false);
-
-  // Состояние смены пароля для каждого пользователя
   const [changePwd, setChangePwd] = useState<Record<number, string>>({});
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
@@ -57,6 +56,14 @@ const AdminUsers = () => {
     setChangePwd((p) => ({ ...p, [u.id]: '' }));
   };
 
+  const toggleAdmin = async (u: AppUser) => {
+    const r = await api<{ ok: boolean; is_admin: boolean }>('toggle_admin', { id: u.id });
+    if (r.ok) {
+      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, is_admin: r.is_admin } : x));
+      toast({ title: r.is_admin ? `${u.username} — теперь администратор` : `${u.username} — права сняты` });
+    }
+  };
+
   const deleteUser = async (id: number) => {
     await api('delete_user', { id });
     setUsers((p) => p.filter((u) => u.id !== id));
@@ -66,7 +73,6 @@ const AdminUsers = () => {
 
   return (
     <Section title="Пользователи системы" icon="Users">
-      {/* Список */}
       <div className="space-y-2 mb-5">
         {users.length === 0 && (
           <p className="text-sm text-muted-foreground">Пользователей нет.</p>
@@ -74,8 +80,22 @@ const AdminUsers = () => {
         {users.map((u) => (
           <div key={u.id} className="border border-border rounded-sm overflow-hidden">
             <div className="flex items-center bg-background px-4 py-2.5 gap-3">
-              <Icon name="User" size={15} className="text-muted-foreground shrink-0" />
+              <Icon name={u.is_admin ? 'ShieldCheck' : 'User'} size={15} className={u.is_admin ? 'text-accent shrink-0' : 'text-muted-foreground shrink-0'} />
               <span className="font-mono text-sm flex-1">{u.username}</span>
+
+              {/* Переключатель Администратор */}
+              <button
+                onClick={() => toggleAdmin(u)}
+                title={u.is_admin ? 'Снять права администратора' : 'Назначить администратором'}
+                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-sm text-xs font-mono border transition ${
+                  u.is_admin
+                    ? 'bg-accent/15 border-accent text-accent hover:bg-accent/25'
+                    : 'border-border text-muted-foreground hover:border-accent hover:text-accent'
+                }`}
+              >
+                <Icon name="Shield" size={12} />
+                {u.is_admin ? 'Админ' : 'Обычный'}
+              </button>
 
               {/* Удалить */}
               {confirmDelete === u.id ? (

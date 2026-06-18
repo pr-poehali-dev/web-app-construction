@@ -22,9 +22,9 @@ const Login = () => {
     }
     setLoading(true);
     try {
-      const r = await api<{ ok: boolean; username?: string }>('user_login', { username, password });
+      const r = await api<{ ok: boolean; username?: string; is_admin?: boolean }>('user_login', { username, password });
       if (r.ok && r.username) {
-        login(r.username);
+        login(r.username, r.is_admin ?? false);
         navigate('/');
       } else {
         toast({ title: 'Неверный логин или пароль', variant: 'destructive' });
