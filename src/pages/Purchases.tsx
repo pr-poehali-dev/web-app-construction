@@ -234,6 +234,103 @@ const Purchases = () => {
   const isLight = (p: Purchase) =>
     p.status !== 'paid' && p.status !== 'ordered' && daysLeft(p.delivery_date) >= 7;
 
+  const active = items.filter((p) => p.status !== 'paid');
+  const paid = items.filter((p) => p.status === 'paid');
+  const [paidOpen, setPaidOpen] = useState(false);
+
+  const PurchaseCard = ({ p, i }: { p: Purchase; i: number }) => (
+    <div
+      key={p.id}
+      style={{ animationDelay: `${i * 50}ms` }}
+      className={`rounded-sm border p-4 sm:p-5 animate-fade-up transition-colors duration-300 ${cardStyle(p)}`}
+    >
+      {/* Заголовок */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <p className="font-display text-base font-600 uppercase tracking-wide leading-tight truncate">
+            {p.supply}
+          </p>
+          <p className="text-sm opacity-75 truncate">{p.object_name}</p>
+        </div>
+        <span className={`font-mono text-xs px-2 py-1 rounded-sm whitespace-nowrap ${isLight(p) ? 'bg-foreground/10' : 'bg-black/20'}`}>
+          {urgencyLabel(p)}
+        </span>
+      </div>
+
+      {/* Даты */}
+      <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-mono mb-4 ${isLight(p) ? 'text-muted-foreground' : 'opacity-85'}`}>
+        <span className="flex items-center gap-1">
+          <Icon name="Truck" size={13} />
+          поставка: {p.delivery_date}
+        </span>
+        {p.payment_date && (
+          <span className="flex items-center gap-1">
+            <Icon name="CreditCard" size={13} />
+            оплата: {p.payment_date}
+          </span>
+        )}
+      </div>
+
+      {/* Стоимости */}
+      <AmountsBlock
+        purchase={p}
+        isLight={isLight(p)}
+        canEdit={p.status !== 'paid' || (user?.isAdmin ?? false)}
+      />
+
+      {/* Кнопки */}
+      <div className="flex flex-wrap gap-2 items-center mt-4">
+        {p.status !== 'paid' && (
+          <label className={`flex items-center gap-1.5 px-3 h-9 rounded-sm text-xs font-mono cursor-pointer border transition ${
+            isLight(p)
+              ? 'bg-secondary border-border text-foreground'
+              : 'bg-black/15 border-transparent text-current'
+          }`}>
+            <Icon name="Calendar" size={14} />
+            <span className="uppercase tracking-wide">Дата оплаты</span>
+            <input
+              type="date"
+              value={p.payment_date || ''}
+              onChange={(e) => onPaymentDate(p, e.target.value)}
+              className="bg-transparent outline-none cursor-pointer w-[110px]"
+            />
+          </label>
+        )}
+
+        {p.status !== 'paid' && (
+          <button
+            onClick={() => onOrdered(p)}
+            title={!p.payment_date ? 'Сначала укажите дату оплаты' : ''}
+            className={`flex items-center gap-1.5 px-3 h-9 rounded-sm font-display uppercase text-xs tracking-wide border transition ${
+              p.status === 'ordered'
+                ? 'bg-black/20 border-transparent'
+                : !p.payment_date
+                  ? isLight(p)
+                    ? 'bg-muted text-muted-foreground border-border cursor-not-allowed opacity-50'
+                    : 'bg-black/10 border-transparent cursor-not-allowed opacity-50'
+                  : isLight(p)
+                    ? 'bg-foreground text-primary-foreground border-foreground hover:opacity-90'
+                    : 'bg-black/25 border-transparent hover:bg-black/35'
+            }`}
+          >
+            <Icon name={p.status === 'ordered' ? 'CheckCheck' : 'Check'} size={14} />
+            {p.status === 'ordered' ? 'Заказано ✓' : 'Заказано'}
+          </button>
+        )}
+
+        {p.status === 'ordered' && (
+          <button
+            onClick={() => onPaid(p)}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-sm font-display uppercase text-xs tracking-wide bg-blue-600 text-white border border-blue-700 hover:bg-blue-700 transition"
+          >
+            <Icon name="BadgeCheck" size={14} />
+            Оплачено
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-border bg-card/70 backdrop-blur-sm sticky top-0 z-10">
@@ -258,104 +355,48 @@ const Purchases = () => {
       <main className="container max-w-3xl py-8 sm:py-10 space-y-3">
         {loading ? (
           <p className="text-muted-foreground font-mono text-sm">Загрузка…</p>
-        ) : items.length === 0 ? (
+        ) : active.length === 0 && paid.length === 0 ? (
           <div className="bg-card border border-border rounded-sm p-10 text-center animate-fade-up">
             <Icon name="PackageCheck" size={32} className="mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground">Активных закупок нет.</p>
           </div>
         ) : (
-          items.map((p, i) => (
-            <div
-              key={p.id}
-              style={{ animationDelay: `${i * 50}ms` }}
-              className={`rounded-sm border p-4 sm:p-5 animate-fade-up transition-colors duration-300 ${cardStyle(p)}`}
-            >
-              {/* Заголовок */}
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="min-w-0">
-                  <p className="font-display text-base font-600 uppercase tracking-wide leading-tight truncate">
-                    {p.supply}
-                  </p>
-                  <p className="text-sm opacity-75 truncate">{p.object_name}</p>
-                </div>
-                <span className={`font-mono text-xs px-2 py-1 rounded-sm whitespace-nowrap ${isLight(p) ? 'bg-foreground/10' : 'bg-black/20'}`}>
-                  {urgencyLabel(p)}
-                </span>
+          <>
+            {active.length === 0 ? (
+              <div className="bg-card border border-border rounded-sm p-8 text-center animate-fade-up">
+                <p className="text-muted-foreground text-sm">Активных закупок нет.</p>
               </div>
+            ) : (
+              active.map((p, i) => <PurchaseCard key={p.id} p={p} i={i} />)
+            )}
 
-              {/* Даты */}
-              <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-mono mb-4 ${isLight(p) ? 'text-muted-foreground' : 'opacity-85'}`}>
-                <span className="flex items-center gap-1">
-                  <Icon name="Truck" size={13} />
-                  поставка: {p.delivery_date}
-                </span>
-                {p.payment_date && (
-                  <span className="flex items-center gap-1">
-                    <Icon name="CreditCard" size={13} />
-                    оплата: {p.payment_date}
-                  </span>
-                )}
-              </div>
+            {/* Оплаченные закупки */}
+            {paid.length > 0 && (
+              <div className="animate-fade-up">
+                <button
+                  onClick={() => setPaidOpen((v) => !v)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-card border border-border rounded-sm hover:border-accent transition"
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon name="BadgeCheck" size={15} className="text-blue-500" />
+                    <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                      Оплаченные закупки
+                    </span>
+                    <span className="font-mono text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 rounded-sm">
+                      {paid.length}
+                    </span>
+                  </div>
+                  <Icon name={paidOpen ? 'ChevronUp' : 'ChevronDown'} size={15} className="text-muted-foreground" />
+                </button>
 
-              {/* Стоимости */}
-              <AmountsBlock
-                purchase={p}
-                isLight={isLight(p)}
-                canEdit={p.status !== 'paid' || (user?.isAdmin ?? false)}
-              />
-
-              {/* Кнопки */}
-              <div className="flex flex-wrap gap-2 items-center mt-4">
-                {p.status !== 'paid' && (
-                  <label className={`flex items-center gap-1.5 px-3 h-9 rounded-sm text-xs font-mono cursor-pointer border transition ${
-                    isLight(p)
-                      ? 'bg-secondary border-border text-foreground'
-                      : 'bg-black/15 border-transparent text-current'
-                  }`}>
-                    <Icon name="Calendar" size={14} />
-                    <span className="uppercase tracking-wide">Дата оплаты</span>
-                    <input
-                      type="date"
-                      value={p.payment_date || ''}
-                      onChange={(e) => onPaymentDate(p, e.target.value)}
-                      className="bg-transparent outline-none cursor-pointer w-[110px]"
-                    />
-                  </label>
-                )}
-
-                {p.status !== 'paid' && (
-                  <button
-                    onClick={() => onOrdered(p)}
-                    title={!p.payment_date ? 'Сначала укажите дату оплаты' : ''}
-                    className={`flex items-center gap-1.5 px-3 h-9 rounded-sm font-display uppercase text-xs tracking-wide border transition ${
-                      p.status === 'ordered'
-                        ? 'bg-black/20 border-transparent'
-                        : !p.payment_date
-                          ? isLight(p)
-                            ? 'bg-muted text-muted-foreground border-border cursor-not-allowed opacity-50'
-                            : 'bg-black/10 border-transparent cursor-not-allowed opacity-50'
-                          : isLight(p)
-                            ? 'bg-foreground text-primary-foreground border-foreground hover:opacity-90'
-                            : 'bg-black/25 border-transparent hover:bg-black/35'
-                    }`}
-                  >
-                    <Icon name={p.status === 'ordered' ? 'CheckCheck' : 'Check'} size={14} />
-                    {p.status === 'ordered' ? 'Заказано ✓' : 'Заказано'}
-                  </button>
-                )}
-
-                {p.status === 'ordered' && (
-                  <button
-                    onClick={() => onPaid(p)}
-                    className="flex items-center gap-1.5 px-3 h-9 rounded-sm font-display uppercase text-xs tracking-wide bg-blue-600 text-white border border-blue-700 hover:bg-blue-700 transition"
-                  >
-                    <Icon name="BadgeCheck" size={14} />
-                    Оплачено
-                  </button>
+                {paidOpen && (
+                  <div className="space-y-3 mt-3">
+                    {paid.map((p, i) => <PurchaseCard key={p.id} p={p} i={i} />)}
+                  </div>
                 )}
               </div>
-            </div>
-          ))
+            )}
+          </>
         )}
 
         {/* Легенда */}
