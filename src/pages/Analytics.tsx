@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { api, BuildObject, Inspection, Purchase } from '@/lib/api';
 
-const COMPLETION_TYPES = ['Теплый контур', 'Черновая отделка', 'White Box'];
-
 const fmt = (n?: number) =>
   n == null || n === 0 ? '—' : new Intl.NumberFormat('ru-RU').format(n) + ' ₽';
 
 const dateRu = (s?: string) =>
   s ? new Date(s).toLocaleDateString('ru-RU') : '—';
+
+type SortDir = 'asc' | 'desc';
 
 const Analytics = () => {
   const navigate = useNavigate();
@@ -17,6 +17,7 @@ const Analytics = () => {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [stages, setStages] = useState<string[]>([]);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   useEffect(() => {
     api<{ objects: BuildObject[] }>('list_objects').then((d) => setObjects(d.objects || []));
@@ -45,10 +46,9 @@ const Analytics = () => {
       (i) => i.object_name && i.object_name.startsWith(lastName)
     );
     const result: Record<string, number> = {};
-    // Идём от новых к старым — первый встреченный по каждому этапу — самый свежий
     objInspections.forEach((i) => {
       if (!i.stage) return;
-      if (i.stage in result) return; // уже есть более свежий
+      if (i.stage in result) return;
       if (i.stage_passed === 'Да') {
         result[i.stage] = 100;
       } else if (i.stage_completion != null) {
@@ -58,17 +58,6 @@ const Analytics = () => {
     return result;
   };
 
-  // Статистика по комплектации
-  const completionStats = COMPLETION_TYPES.map((type) => ({
-    type,
-    count: objects.filter((o) => o.completion_type === type).length,
-  }));
-  const noCompletion = objects.filter((o) => !o.completion_type).length;
-
-  // Проектное финансирование
-  const pfObjects = objects.filter((o) => o.project_finance);
-  const pfTotal = pfObjects.reduce((s, o) => s + (o.project_finance_amount || 0), 0);
-
   const cards = [
     { l: 'Объектов всего', v: objects.length, icon: 'Building2' },
     { l: 'В работе', v: active < 0 ? 0 : active, icon: 'Hammer' },
@@ -76,6 +65,15 @@ const Analytics = () => {
     { l: 'Осмотров', v: inspections.length, icon: 'ClipboardCheck' },
     { l: 'Закупок активно', v: purchases.length, icon: 'Truck' },
   ];
+
+  // Сортировка таблицы по сроку окончания договора
+  const sortedObjects = [...objects].sort((a, b) => {
+    const da = a.contract_end_date ? new Date(a.contract_end_date).getTime() : Infinity;
+    const db = b.contract_end_date ? new Date(b.contract_end_date).getTime() : Infinity;
+    return sortDir === 'asc' ? da - db : db - da;
+  });
+
+  const toggleSort = () => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
 
   return (
     <div className="min-h-screen">
@@ -108,89 +106,6 @@ const Analytics = () => {
               </p>
             </div>
           ))}
-        </div>
-
-        {/* Комплектация */}
-        <div className="bg-card border border-border rounded-sm p-5 animate-fade-up">
-          <div className="flex items-center gap-2 mb-4">
-            <Icon name="Package" size={15} className="text-accent" />
-            <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-              комплектация
-            </p>
-          </div>
-          {objects.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Нет данных.</p>
-          ) : (
-            <div className="space-y-2">
-              {completionStats.map(({ type, count }) => (
-                <div key={type} className="flex items-center gap-3">
-                  <span className="font-display uppercase tracking-wide text-sm flex-1">{type}</span>
-                  <div className="flex-1 bg-secondary rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="h-full bg-accent rounded-full transition-all"
-                      style={{ width: objects.length ? `${(count / objects.length) * 100}%` : '0%' }}
-                    />
-                  </div>
-                  <span className="font-mono text-xs text-muted-foreground w-6 text-right">{count}</span>
-                </div>
-              ))}
-              {noCompletion > 0 && (
-                <div className="flex items-center gap-3">
-                  <span className="font-display uppercase tracking-wide text-sm flex-1 text-muted-foreground">Не указана</span>
-                  <div className="flex-1 bg-secondary rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="h-full bg-muted-foreground/30 rounded-full transition-all"
-                      style={{ width: objects.length ? `${(noCompletion / objects.length) * 100}%` : '0%' }}
-                    />
-                  </div>
-                  <span className="font-mono text-xs text-muted-foreground w-6 text-right">{noCompletion}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Проектное финансирование */}
-        <div className="bg-card border border-border rounded-sm p-5 animate-fade-up">
-          <div className="flex items-center gap-2 mb-4">
-            <Icon name="Landmark" size={15} className="text-accent" />
-            <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-              проектное финансирование
-            </p>
-          </div>
-          {objects.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Нет данных.</p>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="border border-border rounded-sm px-3 py-3 bg-background/40">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Объектов с ПФ</p>
-                  <p className="font-display text-2xl font-700 mt-1">{pfObjects.length}</p>
-                </div>
-                <div className="border border-accent/30 rounded-sm px-3 py-3 bg-accent/5">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-accent">Сумма ПФ</p>
-                  <p className="font-display text-lg font-700 mt-1 text-accent">{fmt(pfTotal)}</p>
-                </div>
-                <div className="border border-border rounded-sm px-3 py-3 bg-background/40">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Без ПФ</p>
-                  <p className="font-display text-2xl font-700 mt-1">{objects.length - pfObjects.length}</p>
-                </div>
-              </div>
-              {pfObjects.length > 0 && (
-                <div className="space-y-2 pt-1">
-                  {pfObjects.map((o) => {
-                    const name = [o.customer_last_name, o.customer_first_name].filter(Boolean).join(' ');
-                    return (
-                      <div key={o.id} className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0">
-                        <span className="font-display uppercase tracking-wide text-sm">{name}</span>
-                        <span className="font-mono text-xs text-accent font-600">{fmt(o.project_finance_amount)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Этап по объектам */}
@@ -244,11 +159,16 @@ const Analytics = () => {
 
         {/* Детальная таблица объектов с этапами */}
         <div className="bg-card border border-border rounded-sm animate-fade-up overflow-hidden">
-          <div className="flex items-center gap-2 p-5 pb-0">
-            <Icon name="TableProperties" size={15} className="text-accent" />
-            <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-              объекты · детальный прогресс по этапам
-            </p>
+          <div className="flex items-center justify-between gap-2 p-5 pb-0">
+            <div className="flex items-center gap-2">
+              <Icon name="TableProperties" size={15} className="text-accent" />
+              <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                объекты · детальный прогресс по этапам
+              </p>
+            </div>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              сортировка по сроку договора
+            </span>
           </div>
 
           {objects.length === 0 ? (
@@ -261,7 +181,18 @@ const Analytics = () => {
                     <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Фамилия</th>
                     <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Адрес</th>
                     <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Проект</th>
-                    <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap">Срок договора</th>
+                    <th className="px-4 py-2.5 whitespace-nowrap">
+                      <button
+                        onClick={toggleSort}
+                        className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-accent hover:text-accent/80 transition"
+                      >
+                        Срок договора
+                        <Icon
+                          name={sortDir === 'asc' ? 'ArrowUp' : 'ArrowDown'}
+                          size={11}
+                        />
+                      </button>
+                    </th>
                     {stages.map((s) => (
                       <th key={s} className="text-center px-3 py-2.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap max-w-[80px]">
                         <span className="block truncate max-w-[72px]" title={s}>{s}</span>
@@ -270,7 +201,7 @@ const Analytics = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {objects.map((o, idx) => {
+                  {sortedObjects.map((o, idx) => {
                     const percents = getStagePercents(o);
                     return (
                       <tr
