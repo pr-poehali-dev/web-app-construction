@@ -99,17 +99,17 @@ const ObjectCard = ({ o, stage, stageCompletion }: { o: BuildObject; stage?: str
         <p className="font-display text-sm font-500 mt-0.5">{fmt(o.actual_expenses)}</p>
       </div>
       <div className={`rounded-sm px-3 py-2 border ${
-        ((o.cost || 0) - (o.actual_expenses || 0)) >= 0
+        ((o.cost || 0) - (o.actual_expenses || 0) - (o.mortgage_cost || 0)) >= 0
           ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800'
           : 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800'
       }`}>
         <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Прибыль</p>
         <p className={`font-display text-sm font-600 mt-0.5 ${
-          ((o.cost || 0) - (o.actual_expenses || 0)) >= 0
+          ((o.cost || 0) - (o.actual_expenses || 0) - (o.mortgage_cost || 0)) >= 0
             ? 'text-emerald-700 dark:text-emerald-400'
             : 'text-red-600 dark:text-red-400'
         }`}>
-          {fmt((o.cost || 0) - (o.actual_expenses || 0))}
+          {fmt((o.cost || 0) - (o.actual_expenses || 0) - (o.mortgage_cost || 0))}
         </p>
       </div>
     </div>

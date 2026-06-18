@@ -35,7 +35,7 @@ const Balance = () => {
       cost: a.cost + (o.cost || 0),
       self: a.self + (o.self_cost || 0),
       actual: a.actual + (o.actual_expenses || 0),
-      profit: a.profit + ((o.cost || 0) - (o.actual_expenses || 0)),
+      profit: a.profit + ((o.cost || 0) - (o.actual_expenses || 0) - (o.mortgage_cost || 0)),
     }),
     { cost: 0, self: 0, actual: 0, profit: 0 }
   );
@@ -156,7 +156,7 @@ const Balance = () => {
                     <p className="font-display text-base font-500">{fmt(o.actual_expenses)}</p>
                   </div>
                   <div className={`rounded-sm px-3 py-2.5 border ${
-                    ((o.cost || 0) - (o.actual_expenses || 0)) >= 0
+                    ((o.cost || 0) - (o.actual_expenses || 0) - (o.mortgage_cost || 0)) >= 0
                       ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800'
                       : 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800'
                   }`}>
@@ -164,11 +164,11 @@ const Balance = () => {
                       Прибыль
                     </p>
                     <p className={`font-display text-base font-600 ${
-                      ((o.cost || 0) - (o.actual_expenses || 0)) >= 0
+                      ((o.cost || 0) - (o.actual_expenses || 0) - (o.mortgage_cost || 0)) >= 0
                         ? 'text-emerald-700 dark:text-emerald-400'
                         : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {fmt((o.cost || 0) - (o.actual_expenses || 0))}
+                      {fmt((o.cost || 0) - (o.actual_expenses || 0) - (o.mortgage_cost || 0))}
                     </p>
                   </div>
                 </div>
