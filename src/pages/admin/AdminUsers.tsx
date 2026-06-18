@@ -10,8 +10,21 @@ interface AppUser {
   id: number;
   username: string;
   is_admin: boolean;
+  is_locked: boolean;
+  locked_until_iso?: string;
+  failed_attempts?: number;
   created_at?: string;
 }
+
+const fmtLockTime = (iso?: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString('ru-RU', {
+    timeZone: 'Asia/Yekaterinburg',
+    day: '2-digit', month: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  });
+};
 
 const AdminUsers = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -64,6 +77,14 @@ const AdminUsers = () => {
     }
   };
 
+  const unlockUser = async (u: AppUser) => {
+    await api('unlock_user', { id: u.id });
+    setUsers((prev) => prev.map((x) => x.id === u.id
+      ? { ...x, is_locked: false, locked_until_iso: undefined, failed_attempts: 0 }
+      : x));
+    toast({ title: `${u.username} разблокирован` });
+  };
+
   const deleteUser = async (id: number) => {
     await api('delete_user', { id });
     setUsers((p) => p.filter((u) => u.id !== id));
@@ -71,31 +92,73 @@ const AdminUsers = () => {
     toast({ title: 'Пользователь удалён' });
   };
 
+  const lockedCount = users.filter((u) => u.is_locked).length;
+
   return (
     <Section title="Пользователи системы" icon="Users">
+      {/* Баннер если есть заблокированные */}
+      {lockedCount > 0 && (
+        <div className="flex items-center gap-2.5 mb-4 rounded-sm px-3 py-2.5 bg-red-950/30 border border-red-800 text-red-300 text-sm font-mono animate-fade-up">
+          <Icon name="ShieldOff" size={15} className="shrink-0" />
+          Заблокировано пользователей: {lockedCount}
+        </div>
+      )}
+
       <div className="space-y-2 mb-5">
         {users.length === 0 && (
           <p className="text-sm text-muted-foreground">Пользователей нет.</p>
         )}
         {users.map((u) => (
-          <div key={u.id} className="border border-border rounded-sm overflow-hidden">
-            <div className="flex items-center bg-background px-4 py-2.5 gap-3">
-              <Icon name={u.is_admin ? 'ShieldCheck' : 'User'} size={15} className={u.is_admin ? 'text-accent shrink-0' : 'text-muted-foreground shrink-0'} />
-              <span className="font-mono text-sm flex-1">{u.username}</span>
+          <div
+            key={u.id}
+            className={`border rounded-sm overflow-hidden transition-colors ${
+              u.is_locked ? 'border-red-700 bg-red-950/10' : 'border-border'
+            }`}
+          >
+            {/* Строка пользователя */}
+            <div className={`flex items-center px-4 py-2.5 gap-2 flex-wrap ${u.is_locked ? 'bg-red-950/20' : 'bg-background'}`}>
+              <Icon
+                name={u.is_locked ? 'ShieldOff' : u.is_admin ? 'ShieldCheck' : 'User'}
+                size={15}
+                className={`shrink-0 ${u.is_locked ? 'text-red-400' : u.is_admin ? 'text-accent' : 'text-muted-foreground'}`}
+              />
+              <span className={`font-mono text-sm flex-1 min-w-0 truncate ${u.is_locked ? 'text-red-300' : ''}`}>
+                {u.username}
+              </span>
 
-              {/* Переключатель Администратор */}
-              <button
-                onClick={() => toggleAdmin(u)}
-                title={u.is_admin ? 'Снять права администратора' : 'Назначить администратором'}
-                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-sm text-xs font-mono border transition ${
-                  u.is_admin
-                    ? 'bg-accent/15 border-accent text-accent hover:bg-accent/25'
-                    : 'border-border text-muted-foreground hover:border-accent hover:text-accent'
-                }`}
-              >
-                <Icon name="Shield" size={12} />
-                {u.is_admin ? 'Админ' : 'Обычный'}
-              </button>
+              {/* Метка «заблокирован до» */}
+              {u.is_locked && (
+                <span className="font-mono text-[11px] px-2 py-0.5 rounded-sm bg-red-900/60 text-red-300 border border-red-700 whitespace-nowrap">
+                  до {fmtLockTime(u.locked_until_iso)}
+                </span>
+              )}
+
+              {/* Кнопка разблокировать */}
+              {u.is_locked && (
+                <button
+                  onClick={() => unlockUser(u)}
+                  className="flex items-center gap-1 h-7 px-2.5 rounded-sm text-xs font-mono border border-red-700 text-red-300 hover:bg-red-900/40 transition whitespace-nowrap"
+                >
+                  <Icon name="LockOpen" size={12} />
+                  Разблокировать
+                </button>
+              )}
+
+              {/* Переключатель Администратор (только если не заблокирован) */}
+              {!u.is_locked && (
+                <button
+                  onClick={() => toggleAdmin(u)}
+                  title={u.is_admin ? 'Снять права администратора' : 'Назначить администратором'}
+                  className={`flex items-center gap-1.5 h-7 px-2.5 rounded-sm text-xs font-mono border transition ${
+                    u.is_admin
+                      ? 'bg-accent/15 border-accent text-accent hover:bg-accent/25'
+                      : 'border-border text-muted-foreground hover:border-accent hover:text-accent'
+                  }`}
+                >
+                  <Icon name="Shield" size={12} />
+                  {u.is_admin ? 'Админ' : 'Обычный'}
+                </button>
+              )}
 
               {/* Удалить */}
               {confirmDelete === u.id ? (
@@ -125,7 +188,7 @@ const AdminUsers = () => {
             </div>
 
             {/* Смена пароля */}
-            <div className="border-t border-border px-4 py-2.5 bg-secondary/30 flex items-center gap-2">
+            <div className={`border-t px-4 py-2.5 flex items-center gap-2 ${u.is_locked ? 'border-red-800/50 bg-red-950/10' : 'border-border bg-secondary/30'}`}>
               <Input
                 type="password"
                 placeholder="Новый пароль"

@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { toast } from '@/hooks/use-toast';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -13,24 +12,28 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [locked, setLocked] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     if (!username || !password) {
-      toast({ title: 'Введите логин и пароль', variant: 'destructive' });
+      setError('Введите логин и пароль');
       return;
     }
     setLoading(true);
     try {
-      const r = await api<{ ok: boolean; username?: string; is_admin?: boolean }>('user_login', { username, password });
+      const r = await api<{ ok: boolean; username?: string; is_admin?: boolean; locked?: boolean; error?: string }>('user_login', { username, password });
       if (r.ok && r.username) {
         login(r.username, r.is_admin ?? false);
         navigate('/');
       } else {
-        toast({ title: 'Неверный логин или пароль', variant: 'destructive' });
+        setLocked(!!r.locked);
+        setError(r.error || 'Неверный логин или пароль');
       }
     } catch {
-      toast({ title: 'Ошибка соединения', variant: 'destructive' });
+      setError('Ошибка соединения, попробуйте позже');
     } finally {
       setLoading(false);
     }
@@ -64,11 +67,12 @@ const Login = () => {
             </label>
             <Input
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => { setUsername(e.target.value); setError(''); setLocked(false); }}
               placeholder="your.login"
               className="h-11"
               autoFocus
               autoComplete="username"
+              disabled={locked}
             />
           </div>
           <div>
@@ -78,25 +82,40 @@ const Login = () => {
             <Input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setError(''); setLocked(false); }}
               placeholder="••••••••"
               className="h-11"
               autoComplete="current-password"
+              disabled={locked}
             />
           </div>
         </div>
 
+        {/* Сообщение об ошибке / блокировке */}
+        {error && (
+          <div className={`mt-4 flex items-start gap-2.5 rounded-sm px-3 py-2.5 text-sm font-mono ${
+            locked
+              ? 'bg-red-950/40 border border-red-800 text-red-300'
+              : 'bg-destructive/10 border border-destructive/30 text-destructive'
+          }`}>
+            <Icon name={locked ? 'ShieldOff' : 'AlertCircle'} size={15} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <Button
           type="submit"
-          disabled={loading}
-          className="w-full h-12 mt-6 bg-foreground text-primary-foreground hover:opacity-90 font-display uppercase tracking-wider rounded-sm text-base"
+          disabled={loading || locked}
+          className="w-full h-12 mt-5 bg-foreground text-primary-foreground hover:opacity-90 font-display uppercase tracking-wider rounded-sm text-base disabled:opacity-40"
         >
           {loading ? (
             <Icon name="Loader" size={18} className="mr-2 animate-spin" />
+          ) : locked ? (
+            <Icon name="Lock" size={18} className="mr-2" />
           ) : (
             <Icon name="LogIn" size={18} className="mr-2" />
           )}
-          {loading ? 'Вхожу…' : 'Войти'}
+          {loading ? 'Вхожу…' : locked ? 'Заблокировано' : 'Войти'}
         </Button>
       </form>
     </div>
