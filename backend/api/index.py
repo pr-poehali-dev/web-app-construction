@@ -336,7 +336,20 @@ def handler(event, context):
     # ── Закупки ───────────────────────────────────────────────────────────────
     elif action == 'list_purchases':
         cur.execute("SELECT * FROM purchases WHERE delivery_date >= CURRENT_DATE ORDER BY delivery_date ASC")
-        result = {'purchases': [jsonable(r) for r in cur.fetchall()]}
+        purchases = [jsonable(r) for r in cur.fetchall()]
+        if purchases:
+            ids = ','.join(str(p['id']) for p in purchases)
+            cur.execute(f"SELECT * FROM purchase_amounts WHERE purchase_id IN ({ids}) AND supplier != '__deleted__' ORDER BY sort_order ASC, id ASC")
+            amounts = cur.fetchall()
+            amounts_map: dict = {}
+            for a in amounts:
+                apid = a['purchase_id']
+                if apid not in amounts_map:
+                    amounts_map[apid] = []
+                amounts_map[apid].append({'id': a['id'], 'amount': float(a['amount'] or 0), 'supplier': a['supplier'] or ''})
+            for pu in purchases:
+                pu['amounts'] = amounts_map.get(pu['id'], [])
+        result = {'purchases': purchases}
 
     elif action == 'update_purchase':
         pid = int(body.get('id'))
@@ -347,6 +360,29 @@ def handler(event, context):
             sets.append(f"payment_date={esc(body.get('payment_date'))}")
         if sets:
             cur.execute(f"UPDATE purchases SET {', '.join(sets)} WHERE id={pid}")
+        result = {'ok': True}
+
+    elif action == 'save_purchase_amounts':
+        pid = int(body.get('purchase_id'))
+        amounts = body.get('amounts', [])
+        # Сохраняем upsert по id; строки без id — новые
+        cur.execute(f"SELECT id FROM purchase_amounts WHERE purchase_id={pid}")
+        existing_ids = {r['id'] for r in cur.fetchall()}
+        incoming_ids = set()
+        for i, a in enumerate(amounts):
+            amt = max(0, float(a.get('amount') or 0))
+            supplier = str(a.get('supplier') or '')
+            aid = a.get('id')
+            if aid and int(aid) in existing_ids:
+                aid = int(aid)
+                incoming_ids.add(aid)
+                cur.execute(f"UPDATE purchase_amounts SET amount={amt}, supplier={esc(supplier)}, sort_order={i} WHERE id={aid}")
+            else:
+                cur.execute(f"INSERT INTO purchase_amounts (purchase_id, amount, supplier, sort_order) VALUES ({pid}, {amt}, {esc(supplier)}, {i}) RETURNING id")
+                incoming_ids.add(cur.fetchone()['id'])
+        # Обнуляем удалённые строки (amount=0, supplier=deleted)
+        for old_id in existing_ids - incoming_ids:
+            cur.execute(f"UPDATE purchase_amounts SET amount=0, supplier='__deleted__', sort_order=9999 WHERE id={old_id}")
         result = {'ok': True}
 
     # ── Стоимости этапов ──────────────────────────────────────────────────────

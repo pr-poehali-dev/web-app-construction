@@ -52,6 +52,12 @@ export interface Inspection {
   created_at?: string;
 }
 
+export interface PurchaseAmount {
+  id?: number;
+  amount: number;
+  supplier: string;
+}
+
 export interface Purchase {
   id: number;
   object_name?: string;
@@ -59,4 +65,5 @@ export interface Purchase {
   delivery_date?: string;
   status?: string;
   payment_date?: string;
+  amounts?: PurchaseAmount[];
 }

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
-import { api, Purchase } from '@/lib/api';
+import { api, Purchase, PurchaseAmount } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 const daysLeft = (dateStr?: string) => {
@@ -13,23 +13,17 @@ const daysLeft = (dateStr?: string) => {
   return Math.round((d.getTime() - today.getTime()) / 86400000);
 };
 
-// Бардовый — только если дата оплаты СЕГОДНЯ (dl === 0)
-// Красный — менее 3 дней до оплаты (но не сегодня)
-// Жёлтый — менее 7 дней
-// Зелёный — заказано, срок ещё далеко
 const cardStyle = (p: Purchase) => {
   if (p.status === 'paid') return 'bg-blue-600 text-white border-blue-700';
-  // Для заказанных срочность считаем по дате оплаты
   if (p.status === 'ordered') {
     const dlPay = daysLeft(p.payment_date);
-    if (dlPay === 0) return 'bg-red-900 text-white border-red-950';   // сегодня — тёмно-бордовый
-    if (dlPay < 3)  return 'bg-red-600 text-white border-red-700';    // менее 3 дней
-    if (dlPay < 7)  return 'bg-amber-400 text-amber-950 border-amber-500'; // менее 7 дней
-    return 'bg-emerald-600 text-white border-emerald-700';             // далеко — зелёный
+    if (dlPay === 0) return 'bg-red-900 text-white border-red-950';
+    if (dlPay < 3)  return 'bg-red-600 text-white border-red-700';
+    if (dlPay < 7)  return 'bg-amber-400 text-amber-950 border-amber-500';
+    return 'bg-emerald-600 text-white border-emerald-700';
   }
-  // Для новых (не заказанных) — по дате поставки
   const dlDelivery = daysLeft(p.delivery_date);
-  if (dlDelivery === 0) return 'bg-red-900 text-white border-red-950'; // сегодня — бордовый
+  if (dlDelivery === 0) return 'bg-red-900 text-white border-red-950';
   if (dlDelivery < 3)   return 'bg-red-600 text-white border-red-700';
   if (dlDelivery < 7)   return 'bg-amber-400 text-amber-950 border-amber-500';
   return 'bg-card text-foreground border-border';
@@ -43,6 +37,144 @@ const urgencyLabel = (p: Purchase) => {
   return `Через ${dl} дн.`;
 };
 
+const fmtAmount = (v: number) =>
+  v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// ── Блок стоимостей для одной закупки ─────────────────────────────────────
+const AmountsBlock = ({ purchase, isLight }: { purchase: Purchase; isLight: boolean }) => {
+  const [rows, setRows] = useState<PurchaseAmount[]>(
+    purchase.amounts && purchase.amounts.length > 0
+      ? purchase.amounts
+      : [{ amount: 0, supplier: '' }]
+  );
+  const [saving, setSaving] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveToServer = (updated: PurchaseAmount[]) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      setSaving(true);
+      await api('save_purchase_amounts', {
+        purchase_id: purchase.id,
+        amounts: updated,
+      });
+      setSaving(false);
+    }, 800);
+  };
+
+  const updateRow = (idx: number, field: keyof PurchaseAmount, val: string) => {
+    const updated = rows.map((r, i) => {
+      if (i !== idx) return r;
+      if (field === 'amount') {
+        const clean = val.replace(/[^\d.,]/g, '').replace(',', '.');
+        return { ...r, amount: parseFloat(clean) || 0, _raw: clean } as PurchaseAmount & { _raw?: string };
+      }
+      return { ...r, [field]: val };
+    });
+    setRows(updated);
+    saveToServer(updated);
+  };
+
+  const addRow = () => {
+    const updated = [...rows, { amount: 0, supplier: '' }];
+    setRows(updated);
+    saveToServer(updated);
+  };
+
+  const removeRow = (idx: number) => {
+    if (rows.length === 1) {
+      const updated = [{ ...rows[0], amount: 0, supplier: '' }];
+      setRows(updated);
+      saveToServer(updated);
+      return;
+    }
+    const updated = rows.filter((_, i) => i !== idx);
+    setRows(updated);
+    saveToServer(updated);
+  };
+
+  const total = rows.reduce((s, r) => s + (r.amount || 0), 0);
+
+  const inputBase = isLight
+    ? 'bg-background border border-border text-foreground placeholder:text-muted-foreground focus:border-accent'
+    : 'bg-black/15 border border-white/20 text-current placeholder:text-white/50 focus:border-white/50';
+
+  return (
+    <div className={`mt-3 pt-3 border-t ${isLight ? 'border-border' : 'border-white/20'}`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className={`font-mono text-[11px] uppercase tracking-wider ${isLight ? 'text-muted-foreground' : 'opacity-70'}`}>
+          Стоимость
+        </span>
+        {saving && <Icon name="Loader" size={12} className="animate-spin opacity-50" />}
+      </div>
+
+      <div className="space-y-1.5">
+        {rows.map((row, idx) => (
+          <div key={idx} className="flex items-center gap-1.5">
+            {/* Сумма */}
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={(row as PurchaseAmount & { _raw?: string })._raw ?? (row.amount > 0 ? String(row.amount) : '')}
+                onChange={(e) => updateRow(idx, 'amount', e.target.value)}
+                onBlur={(e) => {
+                  const v = parseFloat(e.target.value.replace(',', '.')) || 0;
+                  const updated = rows.map((r, i) => i === idx ? { ...r, amount: Math.max(0, v), _raw: undefined } as PurchaseAmount : r);
+                  setRows(updated);
+                  saveToServer(updated);
+                }}
+                className={`h-8 w-32 rounded-sm px-2 text-sm font-mono outline-none transition ${inputBase}`}
+              />
+              <span className={`absolute right-2 text-xs font-mono ${isLight ? 'text-muted-foreground' : 'opacity-60'}`}>₽</span>
+            </div>
+
+            {/* Поставщик */}
+            <input
+              type="text"
+              placeholder="Поставщик"
+              value={row.supplier}
+              onChange={(e) => updateRow(idx, 'supplier', e.target.value)}
+              className={`h-8 flex-1 rounded-sm px-2 text-sm outline-none transition ${inputBase}`}
+            />
+
+            {/* Удалить строку */}
+            <button
+              onClick={() => removeRow(idx)}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition ${
+                isLight
+                  ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                  : 'opacity-60 hover:opacity-100 hover:bg-white/10'
+              }`}
+            >
+              <Icon name="X" size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between mt-2">
+        <button
+          onClick={addRow}
+          className={`flex items-center gap-1 text-xs font-mono transition ${
+            isLight ? 'text-muted-foreground hover:text-foreground' : 'opacity-60 hover:opacity-100'
+          }`}
+        >
+          <Icon name="Plus" size={13} />
+          добавить сумму
+        </button>
+        {rows.length > 1 && total > 0 && (
+          <span className={`font-mono text-xs font-600 ${isLight ? 'text-foreground' : ''}`}>
+            Итого: {fmtAmount(total)} ₽
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Основная страница ──────────────────────────────────────────────────────
 const Purchases = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState<Purchase[]>([]);
@@ -56,15 +188,12 @@ const Purchases = () => {
   };
   useEffect(load, []);
 
-  // Локальное обновление + сохранение в БД
   const update = async (id: number, patch: Record<string, unknown>) => {
     setItems((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     await api('update_purchase', { id, ...patch });
   };
 
-  const onPaymentDate = (p: Purchase, val: string) => {
-    update(p.id, { payment_date: val });
-  };
+  const onPaymentDate = (p: Purchase, val: string) => update(p.id, { payment_date: val });
 
   const onOrdered = (p: Purchase) => {
     if (!p.payment_date) {
@@ -147,10 +276,11 @@ const Purchases = () => {
                 )}
               </div>
 
-              {/* Кнопки — строгий порядок: Дата оплаты → Заказано → Оплачено */}
-              <div className="flex flex-wrap gap-2 items-center">
+              {/* Стоимости */}
+              <AmountsBlock purchase={p} isLight={isLight(p)} />
 
-                {/* 1. Поле даты оплаты — всегда, если не оплачено */}
+              {/* Кнопки */}
+              <div className="flex flex-wrap gap-2 items-center mt-4">
                 {p.status !== 'paid' && (
                   <label className={`flex items-center gap-1.5 px-3 h-9 rounded-sm text-xs font-mono cursor-pointer border transition ${
                     isLight(p)
@@ -168,7 +298,6 @@ const Purchases = () => {
                   </label>
                 )}
 
-                {/* 2. Кнопка Заказано — только если не оплачено */}
                 {p.status !== 'paid' && (
                   <button
                     onClick={() => onOrdered(p)}
@@ -190,7 +319,6 @@ const Purchases = () => {
                   </button>
                 )}
 
-                {/* 3. Кнопка Оплачено — только если уже «Заказано» */}
                 {p.status === 'ordered' && (
                   <button
                     onClick={() => onPaid(p)}
