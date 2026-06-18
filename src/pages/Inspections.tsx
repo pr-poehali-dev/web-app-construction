@@ -71,8 +71,9 @@ const Inspections = () => {
                   </span>
                 )}
                 {ins.stage_passed && (
-                  <span className="px-2 py-1 bg-secondary rounded-sm">
-                    Пройден: {ins.stage_passed}
+                  <span className={`px-2 py-1 rounded-sm ${ins.stage_passed === 'Да' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400'}`}>
+                    {ins.stage_passed === 'Да' ? '✓ Пройден' : `Не пройден`}
+                    {ins.stage_passed === 'Нет' && ins.stage_completion != null && ` · ${ins.stage_completion}%`}
                   </span>
                 )}
                 {ins.supply && <span className="px-2 py-1 bg-secondary rounded-sm">{ins.supply}</span>}

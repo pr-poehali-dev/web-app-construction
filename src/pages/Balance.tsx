@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
-import { api, BuildObject } from '@/lib/api';
+import { api, BuildObject, Inspection } from '@/lib/api';
 
 const fmt = (n?: number) =>
   n == null ? '—' : new Intl.NumberFormat('ru-RU').format(n) + ' ₽';
@@ -12,14 +12,23 @@ const objectLabel = (o: BuildObject) =>
 const Balance = () => {
   const navigate = useNavigate();
   const [objects, setObjects] = useState<BuildObject[]>([]);
+  const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api<{ objects: BuildObject[] }>('list_objects').then((d) => {
-      setObjects(d.objects || []);
+    Promise.all([
+      api<{ objects: BuildObject[] }>('list_objects'),
+      api<{ inspections: Inspection[] }>('list_inspections'),
+    ]).then(([od, id]) => {
+      setObjects(od.objects || []);
+      setInspections(id.inspections || []);
       setLoading(false);
     });
   }, []);
+
+  // Последний осмотр по объекту (inspections отсортированы DESC)
+  const getLastIns = (o: BuildObject) =>
+    inspections.find((i) => i.object_name && i.object_name.startsWith(o.customer_last_name));
 
   const totals = objects.reduce(
     (a, o) => ({
@@ -94,11 +103,36 @@ const Balance = () => {
                     </h3>
                     {o.address && <p className="text-sm text-muted-foreground mt-0.5">{o.address}</p>}
                   </div>
-                  {o.bank && (
-                    <span className="font-mono text-xs px-2 py-1 bg-secondary rounded-sm whitespace-nowrap">
-                      {o.bank}
-                    </span>
-                  )}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    {o.bank && (
+                      <span className="font-mono text-xs px-2 py-1 bg-secondary rounded-sm whitespace-nowrap">
+                        {o.bank}
+                      </span>
+                    )}
+                    {(() => {
+                      const ins = getLastIns(o);
+                      if (!ins?.stage) return null;
+                      const pct = ins.stage_completion ?? null;
+                      return (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="font-mono text-[11px] px-2 py-0.5 bg-accent/15 text-accent border border-accent/30 rounded-sm whitespace-nowrap">
+                            {ins.stage}
+                          </span>
+                          {pct != null && (
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-16 bg-secondary rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${pct >= 100 ? 'bg-emerald-500' : 'bg-accent'}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="font-mono text-[11px] text-muted-foreground">{pct}%</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
                   {[

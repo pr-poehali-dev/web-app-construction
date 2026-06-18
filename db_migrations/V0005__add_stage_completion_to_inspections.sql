@@ -1,0 +1,1 @@
+ALTER TABLE inspections ADD COLUMN IF NOT EXISTS stage_completion INTEGER DEFAULT NULL;

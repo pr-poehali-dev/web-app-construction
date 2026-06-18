@@ -53,6 +53,7 @@ export interface Inspection {
   owner_meeting_date?: string;
   act_date?: string;
   created_at?: string;
+  stage_completion?: number | null;
 }
 
 export interface PurchaseAmount {

@@ -101,6 +101,7 @@ def ensure_schema(cur):
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS project_finance BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS project_finance_amount NUMERIC(14,2) DEFAULT 0",
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS completion_type VARCHAR(100)",
+        "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS stage_completion INTEGER DEFAULT NULL",
     ]:
         cur.execute(col_sql)
     # Начальные пользователи
@@ -312,15 +313,29 @@ def handler(event, context):
         result = {'inspections': [jsonable(r) for r in cur.fetchall()]}
 
     elif action == 'add_inspection':
+        # Определяем % выполнения: Да -> 100, Нет -> значение из запроса (0–99)
+        sp = body.get('stage_passed', '')
+        if sp == 'Да':
+            stage_completion_val = 100
+        elif sp == 'Нет':
+            try:
+                stage_completion_val = max(0, min(99, int(body.get('stage_completion', 0))))
+            except (ValueError, TypeError):
+                stage_completion_val = 0
+        else:
+            stage_completion_val = 'NULL'
+
+        sc_sql = str(stage_completion_val)
+
         cur.execute(f'''INSERT INTO inspections
             (object_name, stage, stage_passed, delivery_date, supply, next_start_date,
-             next_end_date, note, house_done, owner_meeting_date, act_date)
+             next_end_date, note, house_done, owner_meeting_date, act_date, stage_completion)
             VALUES ({esc(body.get('object_name'))}, {esc(body.get('stage'))},
              {esc(body.get('stage_passed'))}, {esc(body.get('delivery_date'))},
              {esc(body.get('supply'))}, {esc(body.get('next_start_date'))},
              {esc(body.get('next_end_date'))}, {esc(body.get('note'))},
              {esc(body.get('house_done'))}, {esc(body.get('owner_meeting_date'))},
-             {esc(body.get('act_date'))})
+             {esc(body.get('act_date'))}, {sc_sql})
             RETURNING id''')
         ins_id = cur.fetchone()['id']
 

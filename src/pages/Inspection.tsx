@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -65,6 +66,7 @@ const Inspection = () => {
   const [stageWarning, setStageWarning] = useState(false);
 
   const [stagePassed, setStagePassed] = useState('');
+  const [stageCompletion, setStageCompletion] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [supply, setSupply] = useState('');
   const [nextStart, setNextStart] = useState('');
@@ -146,6 +148,7 @@ const Inspection = () => {
         object_name: object,
         stage,
         stage_passed: stagePassed,
+        stage_completion: stagePassed === 'Нет' ? (parseInt(stageCompletion) || 0) : undefined,
         delivery_date: deliveryDate,
         supply,
         next_start_date: nextStart,
@@ -301,7 +304,10 @@ const Inspection = () => {
                     <button
                       key={v}
                       type="button"
-                      onClick={() => setStagePassed(v)}
+                      onClick={() => {
+                        setStagePassed(v);
+                        if (v === 'Да') setStageCompletion('');
+                      }}
                       className={`h-11 rounded-sm border font-display uppercase tracking-wide text-sm transition ${
                         stagePassed === v
                           ? 'bg-foreground text-primary-foreground border-foreground'
@@ -313,6 +319,38 @@ const Inspection = () => {
                   ))}
                 </div>
               </Field>
+
+              {/* % выполнения — только при ответе "Нет" */}
+              {stagePassed === 'Нет' && (
+                <Field label="% выполнения">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={stageCompletion}
+                        onChange={(e) => {
+                          const v = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                          setStageCompletion(String(v));
+                        }}
+                        className="h-11 w-28 font-mono text-base"
+                        placeholder="0"
+                        autoFocus
+                      />
+                      <span className="font-mono text-lg text-muted-foreground">%</span>
+                    </div>
+                    {stageCompletion !== '' && (
+                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-full bg-accent rounded-full transition-all"
+                          style={{ width: `${Math.max(0, Math.min(100, parseInt(stageCompletion) || 0))}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </Field>
+              )}
 
               <Field label="Дата поставки">
                 <input

@@ -12,7 +12,7 @@ const fullName = (o: BuildObject) =>
 const dateRu = (s?: string) =>
   s ? new Date(s).toLocaleDateString('ru-RU') : '—';
 
-const ObjectCard = ({ o, stage }: { o: BuildObject; stage?: string }) => (
+const ObjectCard = ({ o, stage, stageCompletion }: { o: BuildObject; stage?: string; stageCompletion?: number | null }) => (
   <div className="bg-card border border-border rounded-sm p-4 sm:p-5 hover:border-accent transition animate-fade-up">
     <div className="flex items-start justify-between gap-3 mb-3">
       <div className="min-w-0">
@@ -27,6 +27,17 @@ const ObjectCard = ({ o, stage }: { o: BuildObject; stage?: string }) => (
           <span className="font-mono text-[11px] px-2 py-1 bg-accent/15 text-accent rounded-sm whitespace-nowrap border border-accent/30">
             {stage}
           </span>
+        )}
+        {stage && stageCompletion != null && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-16 bg-secondary rounded-full h-1.5 overflow-hidden">
+              <div
+                className={`h-full rounded-full ${stageCompletion >= 100 ? 'bg-emerald-500' : 'bg-accent'}`}
+                style={{ width: `${stageCompletion}%` }}
+              />
+            </div>
+            <span className="font-mono text-[11px] text-muted-foreground">{stageCompletion}%</span>
+          </div>
         )}
         {o.completion_type && (
           <span className="font-mono text-[11px] px-2 py-1 bg-secondary rounded-sm whitespace-nowrap">
@@ -149,6 +160,7 @@ const Objects = () => {
 
   // Последний этап каждого объекта (объект идентифицируется по ФИО + адресу)
   const latestStage: Record<number, string> = {};
+  const latestCompletion: Record<number, number | null> = {};
   const doneIds = new Set<number>();
 
   objects.forEach((o) => {
@@ -156,6 +168,7 @@ const Objects = () => {
     // inspections отсортированы DESC по created_at
     const ins = inspections.find((i) => i.object_name && i.object_name.startsWith(fullName(o).split(' ')[0]));
     if (ins?.stage) latestStage[o.id] = ins.stage;
+    if (ins) latestCompletion[o.id] = ins.stage_completion ?? null;
     // Если в любом осмотре по этому объекту stage_passed='Да' И stage='Дом сдан' → готов
     const hasDone = inspections.some(
       (i) =>
@@ -216,7 +229,7 @@ const Objects = () => {
                 <div className="space-y-3">
                   {active.map((o, i) => (
                     <div key={o.id} style={{ animationDelay: `${i * 50}ms` }}>
-                      <ObjectCard o={o} stage={latestStage[o.id]} />
+                      <ObjectCard o={o} stage={latestStage[o.id]} stageCompletion={latestCompletion[o.id]} />
                     </div>
                   ))}
                 </div>
@@ -236,7 +249,7 @@ const Objects = () => {
                 <div className="space-y-3">
                   {done.map((o, i) => (
                     <div key={o.id} style={{ animationDelay: `${i * 50}ms` }}>
-                      <ObjectCard o={o} stage="Дом сдан" />
+                      <ObjectCard o={o} stage="Дом сдан" stageCompletion={100} />
                     </div>
                   ))}
                 </div>

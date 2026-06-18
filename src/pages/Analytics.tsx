@@ -24,8 +24,12 @@ const Analytics = () => {
   const active = objects.length - done;
 
   const stageMap: Record<string, string> = {};
+  const completionMap: Record<string, number | null> = {};
   inspections.forEach((i) => {
-    if (i.object_name && !stageMap[i.object_name]) stageMap[i.object_name] = i.stage || '';
+    if (i.object_name && !stageMap[i.object_name]) {
+      stageMap[i.object_name] = i.stage || '';
+      completionMap[i.object_name] = i.stage_completion ?? null;
+    }
   });
 
   // Статистика по комплектации
@@ -178,14 +182,28 @@ const Analytics = () => {
               {objects.map((o) => {
                 const name = [o.customer_last_name, o.customer_first_name].filter(Boolean).join(' ');
                 const stageKey = Object.keys(stageMap).find((k) => k.includes(o.customer_last_name));
+                const pct = stageKey ? completionMap[stageKey] : null;
                 return (
-                  <div key={o.id} className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0">
-                    <div className="min-w-0">
-                      <span className="font-display uppercase tracking-wide text-sm">{name}</span>
-                      {o.completion_type && (
-                        <span className="ml-2 font-mono text-[10px] px-1.5 py-0.5 bg-secondary rounded-sm">
-                          {o.completion_type}
-                        </span>
+                  <div key={o.id} className="flex items-center gap-3 border-b border-border pb-3 last:border-0">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-display uppercase tracking-wide text-sm">{name}</span>
+                        {o.completion_type && (
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 bg-secondary rounded-sm">
+                            {o.completion_type}
+                          </span>
+                        )}
+                      </div>
+                      {pct != null && (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <div className="flex-1 max-w-[120px] bg-secondary rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-emerald-500' : 'bg-accent'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="font-mono text-[11px] text-muted-foreground">{pct}%</span>
+                        </div>
                       )}
                     </div>
                     <span className="font-mono text-xs px-2 py-1 bg-secondary rounded-sm whitespace-nowrap shrink-0">
