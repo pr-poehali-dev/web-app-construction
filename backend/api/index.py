@@ -182,17 +182,14 @@ def handler(event, context):
         cur.execute("""
             SELECT o.*,
                 COALESCE((
-                    SELECT SUM(sc.cost)
-                    FROM stage_costs sc
-                    WHERE sc.object_id = o.id
-                      AND EXISTS (
-                          SELECT 1 FROM inspections i
-                          WHERE i.stage = sc.stage
-                            AND i.stage_passed = 'Да'
-                            AND (
-                              i.object_name LIKE CONCAT(o.customer_last_name, '%')
-                              OR i.object_name LIKE CONCAT(o.customer_last_name, ' ', COALESCE(o.customer_first_name, ''), '%')
-                            )
+                    SELECT SUM(pa.amount)
+                    FROM purchases p
+                    JOIN purchase_amounts pa ON pa.purchase_id = p.id
+                    WHERE pa.supplier != '__deleted__'
+                      AND pa.amount > 0
+                      AND (
+                        p.object_name LIKE CONCAT(o.customer_last_name, '%')
+                        OR p.object_name LIKE CONCAT(o.customer_last_name, ' ', COALESCE(o.customer_first_name, ''), '%')
                       )
                 ), 0) AS actual_expenses
             FROM objects o
