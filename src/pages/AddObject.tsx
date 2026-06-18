@@ -4,8 +4,12 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
+
+const COMPLETION_TYPES = ['Теплый контур', 'Черновая отделка', 'White Box'];
 
 const Field = ({
   label,
@@ -51,6 +55,9 @@ const AddObject = () => {
     mortgage_cost: '',
     bank: '',
     note: '',
+    project_finance: false,
+    project_finance_amount: '',
+    completion_type: '',
   });
 
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -63,7 +70,7 @@ const AddObject = () => {
     }
     setSaving(true);
     try {
-      await api('add_object', f);
+      await api('add_object', { ...f, project_finance: f.project_finance ? true : false } as Record<string, unknown>);
       toast({ title: 'Объект добавлен' });
       navigate('/');
     } catch {
@@ -183,8 +190,55 @@ const AddObject = () => {
             <Field label="Банк">
               <Input value={f.bank} onChange={(e) => set('bank', e.target.value)} className="h-11" />
             </Field>
+
+            {/* Проектное финансирование */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <Checkbox
+                  checked={f.project_finance}
+                  onCheckedChange={(v) => setF((p) => ({ ...p, project_finance: !!v, project_finance_amount: v ? p.project_finance_amount : '' }))}
+                />
+                <span className="font-display text-sm font-500 uppercase tracking-wide text-foreground">
+                  Проектное финансирование
+                </span>
+              </label>
+              {f.project_finance && (
+                <Field label="Сумма проектного финансирования">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={f.project_finance_amount}
+                    onChange={(e) => set('project_finance_amount', e.target.value)}
+                    className="h-11"
+                    placeholder="₽"
+                    autoFocus
+                  />
+                </Field>
+              )}
+            </div>
+
             <Field label="Примечание">
               <Textarea value={f.note} onChange={(e) => set('note', e.target.value)} className="min-h-24 resize-none" placeholder="Дополнительная информация…" />
+            </Field>
+          </div>
+
+          {/* Комплектация */}
+          <div className="bg-card border border-border rounded-sm p-5 sm:p-6 space-y-5 animate-fade-up">
+            <div className="flex items-center gap-2 pb-1">
+              <span className="h-2 w-2 rounded-full bg-accent" />
+              <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">комплектация</p>
+            </div>
+            <Field label="Комплектация">
+              <Select value={f.completion_type} onValueChange={(v) => setF((p) => ({ ...p, completion_type: v }))}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Выберите вариант…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMPLETION_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
 

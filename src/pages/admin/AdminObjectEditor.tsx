@@ -3,8 +3,12 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api, BuildObject } from '@/lib/api';
 import { Lbl, Section, dateInputClass, fullName } from './AdminShared';
+
+const COMPLETION_TYPES = ['Теплый контур', 'Черновая отделка', 'White Box'];
 
 // ─── Редактор объекта ─────────────────────────────────────────────────────────
 
@@ -186,6 +190,47 @@ const ObjectEditor = ({
               <div>
                 <Lbl>Банк</Lbl>
                 <Input value={o.bank || ''} onChange={(e) => set('bank', e.target.value)} className="h-10" />
+              </div>
+
+              {/* Проектное финансирование */}
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <Checkbox
+                    checked={!!o.project_finance}
+                    onCheckedChange={(v) => setO((p) => ({ ...p, project_finance: !!v, project_finance_amount: v ? p.project_finance_amount : 0 }))}
+                  />
+                  <Lbl>Проектное финансирование</Lbl>
+                </label>
+                {o.project_finance && (
+                  <div>
+                    <Lbl>Сумма проектного финансирования (₽)</Lbl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={o.project_finance_amount ?? 0}
+                      onChange={(e) => set('project_finance_amount', e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Комплектация */}
+              <div>
+                <Lbl>Комплектация</Lbl>
+                <Select
+                  value={o.completion_type || ''}
+                  onValueChange={(v) => setO((p) => ({ ...p, completion_type: v }))}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Выберите вариант…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COMPLETION_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

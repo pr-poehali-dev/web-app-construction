@@ -28,6 +28,11 @@ const ObjectCard = ({ o, stage }: { o: BuildObject; stage?: string }) => (
             {stage}
           </span>
         )}
+        {o.completion_type && (
+          <span className="font-mono text-[11px] px-2 py-1 bg-secondary rounded-sm whitespace-nowrap">
+            {o.completion_type}
+          </span>
+        )}
         {o.bank && (
           <span className="font-mono text-[11px] px-2 py-1 bg-secondary rounded-sm whitespace-nowrap">
             {o.bank}
@@ -62,6 +67,20 @@ const ObjectCard = ({ o, stage }: { o: BuildObject; stage?: string }) => (
         </div>
       ))}
     </div>
+
+    {/* Проектное финансирование */}
+    {o.project_finance && (
+      <div className="mb-2 border border-accent/30 rounded-sm px-3 py-2 bg-accent/5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Icon name="Landmark" size={13} className="text-accent shrink-0" />
+          <p className="font-mono text-[10px] uppercase tracking-wider text-accent">Проектное финансирование</p>
+        </div>
+        {o.project_finance_amount ? (
+          <p className="font-display text-sm font-600 text-accent">{fmt(o.project_finance_amount)}</p>
+        ) : null}
+      </div>
+    )}
+
     <div className="grid grid-cols-2 gap-2">
       <div className="border border-border rounded-sm px-3 py-2 bg-background/40">
         <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Фактические расходы</p>
