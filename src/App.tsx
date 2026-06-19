@@ -15,6 +15,7 @@ import Balance from "./pages/Balance";
 import Purchases from "./pages/Purchases";
 import Analytics from "./pages/Analytics";
 import Admin from "./pages/Admin";
+import PaymentRequest from "./pages/PaymentRequest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/purchases" element={<RequireAuth><Purchases /></RequireAuth>} />
             <Route path="/analytics" element={<RequireAuth><Analytics /></RequireAuth>} />
             <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
+            <Route path="/payment-request" element={<RequireAuth><PaymentRequest /></RequireAuth>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

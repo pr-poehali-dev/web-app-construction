@@ -23,6 +23,12 @@ const sections = [
     to: '/purchases',
   },
   {
+    title: 'Подать на оплату',
+    desc: 'Заявка на закупку материалов или зарплату',
+    icon: 'Send',
+    to: '/payment-request',
+  },
+  {
     title: 'Последние осмотры',
     desc: 'История проведённых проверок',
     icon: 'History',

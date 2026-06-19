@@ -410,6 +410,38 @@ def handler(event, context):
         result = {'ok': True}
 
     # ── Стоимости этапов ──────────────────────────────────────────────────────
+    elif action == 'create_request':
+        """Создать заявку на оплату (закупка или зарплата) — появится в Ближайших закупках"""
+        req_type = body.get('type')  # 'purchase' | 'salary'
+        object_name = str(body.get('object_name', ''))
+        delivery_date = body.get('delivery_date') or body.get('payment_date')
+        payment_date = body.get('payment_date')
+
+        if req_type == 'purchase':
+            supply = str(body.get('supply', ''))
+            amount = float(body.get('amount') or 0)
+            cur.execute(f"""
+                INSERT INTO purchases (object_name, supply, delivery_date, payment_date, status)
+                VALUES ({esc(object_name)}, {esc(supply)}, {esc(delivery_date)}, {esc(payment_date)}, 'new')
+                RETURNING id
+            """)
+            pid = cur.fetchone()['id']
+            if amount > 0:
+                cur.execute(f"INSERT INTO purchase_amounts (purchase_id, amount, supplier, sort_order) VALUES ({pid}, {amount}, '', 0)")
+        elif req_type == 'salary':
+            amount = float(body.get('amount') or 0)
+            cur.execute(f"""
+                INSERT INTO purchases (object_name, supply, delivery_date, payment_date, status)
+                VALUES ({esc(object_name)}, 'Зарплата', {esc(payment_date)}, {esc(payment_date)}, 'new')
+                RETURNING id
+            """)
+            pid = cur.fetchone()['id']
+            if amount > 0:
+                cur.execute(f"INSERT INTO purchase_amounts (purchase_id, amount, supplier, sort_order) VALUES ({pid}, {amount}, 'Зарплата', 0)")
+        else:
+            pid = None
+        result = {'ok': True, 'id': pid}
+
     elif action == 'get_stage_costs':
         oid = int(body.get('object_id') or params.get('object_id', 0))
         cur.execute(f"SELECT stage, cost FROM stage_costs WHERE object_id={oid}")
