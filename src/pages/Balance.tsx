@@ -30,9 +30,19 @@ const Balance = () => {
   const getLastIns = (o: BuildObject) =>
     inspections.find((i) => i.object_name && i.object_name.startsWith(o.customer_last_name));
 
+  const doneIds = new Set<number>();
+  objects.forEach((o) => {
+    const base = o.customer_last_name;
+    const hasDone = inspections.some(
+      (i) => i.object_name && i.object_name.startsWith(base) &&
+        (i.house_done === 'Да' || (i.stage === 'Дом сдан' && i.stage_passed === 'Да'))
+    );
+    if (hasDone) doneIds.add(o.id);
+  });
+
   const totals = objects.reduce(
     (a, o) => ({
-      cost: a.cost + (o.cost || 0),
+      cost: a.cost + (doneIds.has(o.id) ? 0 : (o.cost || 0)),
       self: a.self + (o.self_cost || 0),
       actual: a.actual + (o.actual_expenses || 0),
       profit: a.profit + ((o.cost || 0) - (o.actual_expenses || 0) - (o.mortgage_cost || 0)),
@@ -62,7 +72,7 @@ const Balance = () => {
       <main className="container max-w-4xl py-8 sm:py-10 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-up">
           {[
-            { l: 'Общая стоимость по договору', v: totals.cost, icon: 'Wallet' },
+            { l: 'В работе', v: totals.cost, icon: 'Wallet' },
             { l: 'Фактические расходы', v: totals.actual, icon: 'Receipt' },
             { l: 'Прибыль', v: totals.profit, icon: 'TrendingUp', accent: true },
           ].map((t) => (
