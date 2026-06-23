@@ -1,0 +1,1 @@
+ALTER TABLE objects ALTER COLUMN project_finance TYPE VARCHAR(100) USING CASE WHEN project_finance THEN 'Проектное финансирование' ELSE NULL END;

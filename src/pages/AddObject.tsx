@@ -4,7 +4,6 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
@@ -55,7 +54,7 @@ const AddObject = () => {
     mortgage_cost: '',
     bank: '',
     note: '',
-    project_finance: false,
+    project_finance: '',
     project_finance_amount: '',
     completion_type: '',
   });
@@ -70,7 +69,7 @@ const AddObject = () => {
     }
     setSaving(true);
     try {
-      await api('add_object', { ...f, project_finance: f.project_finance ? true : false } as Record<string, unknown>);
+      await api('add_object', { ...f } as Record<string, unknown>);
       toast({ title: 'Объект добавлен' });
       navigate('/');
     } catch {
@@ -191,18 +190,24 @@ const AddObject = () => {
               <Input value={f.bank} onChange={(e) => set('bank', e.target.value)} className="h-11" />
             </Field>
 
-            {/* Проектное финансирование */}
+            {/* Вид финансирования */}
             <div className="space-y-3">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <Checkbox
-                  checked={f.project_finance}
-                  onCheckedChange={(v) => setF((p) => ({ ...p, project_finance: !!v, project_finance_amount: v ? p.project_finance_amount : '' }))}
-                />
-                <span className="font-display text-sm font-500 uppercase tracking-wide text-foreground">
-                  Проектное финансирование
-                </span>
-              </label>
-              {f.project_finance && (
+              <Field label="Вид финансирования">
+                <Select
+                  value={f.project_finance}
+                  onValueChange={(v) => setF((p) => ({ ...p, project_finance: v, project_finance_amount: v === 'Проектное финансирование' ? p.project_finance_amount : '' }))}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Выберите вид финансирования…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['Проектное финансирование', 'Наличные средства', 'НДС', 'Другое'].map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {f.project_finance === 'Проектное финансирование' && (
                 <Field label="Сумма проектного финансирования">
                   <Input
                     type="number"
@@ -211,7 +216,6 @@ const AddObject = () => {
                     onChange={(e) => set('project_finance_amount', e.target.value)}
                     className="h-11"
                     placeholder="₽"
-                    autoFocus
                   />
                 </Field>
               )}

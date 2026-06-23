@@ -3,7 +3,6 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api, BuildObject } from '@/lib/api';
 import { Lbl, Section, dateInputClass, fullName } from './AdminShared';
@@ -198,16 +197,25 @@ const ObjectEditor = ({
                 <Input value={o.bank || ''} onChange={(e) => set('bank', e.target.value)} className="h-10" />
               </div>
 
-              {/* Проектное финансирование */}
+              {/* Вид финансирования */}
               <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                  <Checkbox
-                    checked={!!o.project_finance}
-                    onCheckedChange={(v) => setO((p) => ({ ...p, project_finance: !!v, project_finance_amount: v ? p.project_finance_amount : 0 }))}
-                  />
-                  <Lbl>Проектное финансирование</Lbl>
-                </label>
-                {o.project_finance && (
+                <div>
+                  <Lbl>Вид финансирования</Lbl>
+                  <Select
+                    value={o.project_finance || ''}
+                    onValueChange={(v) => setO((p) => ({ ...p, project_finance: v, project_finance_amount: v === 'Проектное финансирование' ? p.project_finance_amount : 0 }))}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Выберите вид финансирования…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['Проектное финансирование', 'Наличные средства', 'НДС', 'Другое'].map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {o.project_finance === 'Проектное финансирование' && (
                   <div>
                     <Lbl>Сумма проектного финансирования (₽)</Lbl>
                     <Input

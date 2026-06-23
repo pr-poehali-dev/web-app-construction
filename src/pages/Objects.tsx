@@ -80,14 +80,14 @@ const ObjectCard = ({ o, stage, stageCompletion }: { o: BuildObject; stage?: str
       ))}
     </div>
 
-    {/* Проектное финансирование */}
+    {/* Вид финансирования */}
     {o.project_finance && (
       <div className="mb-2 border border-accent/30 rounded-sm px-3 py-2 bg-accent/5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon name="Landmark" size={13} className="text-accent shrink-0" />
-          <p className="font-mono text-[10px] uppercase tracking-wider text-accent">Проектное финансирование</p>
+          <p className="font-mono text-[10px] uppercase tracking-wider text-accent">{o.project_finance}</p>
         </div>
-        {o.project_finance_amount ? (
+        {o.project_finance === 'Проектное финансирование' && o.project_finance_amount ? (
           <p className="font-display text-sm font-600 text-accent">{fmt(o.project_finance_amount)}</p>
         ) : null}
       </div>

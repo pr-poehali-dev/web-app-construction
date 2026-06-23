@@ -98,7 +98,7 @@ def ensure_schema(cur):
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS cadastral_number VARCHAR(100)",
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS contract_prelim_number VARCHAR(100)",
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS contract_main_number VARCHAR(100)",
-        "ALTER TABLE objects ADD COLUMN IF NOT EXISTS project_finance BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE objects ADD COLUMN IF NOT EXISTS project_finance VARCHAR(100)",
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS project_finance_amount NUMERIC(14,2) DEFAULT 0",
         "ALTER TABLE objects ADD COLUMN IF NOT EXISTS completion_type VARCHAR(100)",
         "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS stage_completion INTEGER DEFAULT NULL",
@@ -201,7 +201,6 @@ def handler(event, context):
         result = {'objects': [jsonable(r) for r in cur.fetchall()]}
 
     elif action == 'add_object':
-        pf = 'TRUE' if body.get('project_finance') else 'FALSE'
         cur.execute(f'''INSERT INTO objects
             (customer_last_name, customer_first_name, customer_middle_name,
              customer_phone, customer_email,
@@ -230,7 +229,7 @@ def handler(event, context):
              {num(body.get('mortgage_cost'))},
              {esc(body.get('bank'))},
              {esc(body.get('note'))},
-             {pf},
+             {esc(body.get('project_finance'))},
              {num(body.get('project_finance_amount'))},
              {esc(body.get('completion_type'))})
             RETURNING id''')
@@ -238,7 +237,6 @@ def handler(event, context):
 
     elif action == 'update_object':
         oid = int(body.get('id'))
-        pf = 'TRUE' if body.get('project_finance') else 'FALSE'
         cur.execute(f'''UPDATE objects SET
             customer_last_name={esc(body.get('customer_last_name'))},
             customer_first_name={esc(body.get('customer_first_name'))},
@@ -259,7 +257,7 @@ def handler(event, context):
             mortgage_cost={num(body.get('mortgage_cost'))},
             bank={esc(body.get('bank'))},
             note={esc(body.get('note'))},
-            project_finance={pf},
+            project_finance={esc(body.get('project_finance'))},
             project_finance_amount={num(body.get('project_finance_amount'))},
             completion_type={esc(body.get('completion_type'))}
             WHERE id={oid}''')

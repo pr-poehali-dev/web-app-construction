@@ -34,7 +34,7 @@ export interface BuildObject {
   bank?: string;
   note?: string;
   actual_expenses?: number;
-  project_finance?: boolean;
+  project_finance?: string;
   project_finance_amount?: number;
   completion_type?: string;
 }
